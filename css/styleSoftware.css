@@ -1,0 +1,375 @@
+:root {
+  --primary-color: #2ab64b;
+  --primary-dark: #1a8c39;
+  --secondary-color: #c2db34;
+  --accent-color: #3ce745;
+  --text-dark: #333;
+  --text-medium: #555;
+  --text-light: #777;
+  --transition-speed: 0.3s;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background-color: #f9f9f9;
+  color: var(--text-dark);
+  overflow-x: hidden;
+}
+
+.container {
+  display: flex;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.welcome-section {
+  flex: 1;
+  background-color: white;
+  padding: 50px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-section::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 10px;
+  background: linear-gradient(90deg, var(--secondary-color), var(--primary-color));
+}
+
+.welcome-content {
+  max-width: 500px;
+  animation: fadeInUp 1s ease-out;
+}
+
+.logo {
+  width: 180px;
+  margin-bottom: 30px;
+  animation: bounceIn 1s ease-out;
+}
+
+.welcome-section h2 {
+  margin-bottom: 15px;
+  color: var(--primary-dark);
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.welcome-section p {
+  color: var(--text-medium);
+  line-height: 1.8;
+  margin-bottom: 30px;
+}
+
+.user-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  padding: 15px 25px;
+  background-color: rgba(42, 182, 75, 0.1);
+  border-radius: 50px;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.user-welcome i {
+  margin-right: 10px;
+  color: var(--primary-color);
+  font-size: 1.2rem;
+}
+
+.user-welcome span {
+  font-weight: 500;
+  color: var(--primary-dark);
+}
+
+.selection-section {
+  flex: 1;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.selection-section::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 70%);
+  transform: rotate(30deg);
+}
+
+.selection-box {
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 50px 40px;
+  border-radius: 15px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  z-index: 1;
+  animation: fadeInRight 1s ease-out;
+}
+
+.selection-box h2 {
+  color: var(--primary-dark);
+  margin-bottom: 25px;
+  text-align: center;
+  font-size: 26px;
+  position: relative;
+}
+
+.selection-box h2::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+  margin: 10px auto 0;
+}
+
+.software-options {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.software-card {
+  background: white;
+  border-radius: 10px;
+  padding: 25px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+  transition: all var(--transition-speed) ease;
+  cursor: pointer;
+  border-left: 4px solid transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.software-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(42, 182, 75, 0.05), rgba(194, 219, 52, 0.05));
+  opacity: 0;
+  transition: opacity var(--transition-speed) ease;
+}
+
+.software-card:hover::before {
+  opacity: 1;
+}
+
+.software-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.software-card.proveedores:hover {
+  border-left-color: var(--secondary-color);
+}
+
+.software-card.envios:hover {
+  border-left-color: var(--accent-color);
+}
+
+.software-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20px;
+  font-size: 20px;
+  color: white;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.proveedores .software-icon {
+  background: linear-gradient(135deg, var(--secondary-color), #2980b9);
+}
+
+.envios .software-icon {
+  background: linear-gradient(135deg, var(--accent-color), #2980b9);
+}
+
+.software-info {
+  position: relative;
+  z-index: 1;
+}
+
+.software-info h3 {
+  margin: 0 0 5px 0;
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.software-info p {
+  margin: 0;
+  color: var(--text-light);
+  font-size: 14px;
+}
+
+.exit-button {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background-color: #f8f9fa;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-speed) ease;
+  z-index: 10;
+  text-decoration: none;
+}
+
+.exit-button:hover {
+  background-color: #e9ecef;
+  transform: scale(1.05);
+}
+
+.exit-button i {
+  color: var(--text-medium);
+  font-size: 18px;
+}
+
+/* Animaciones */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 992px) {
+  .container {
+    flex-direction: column;
+    min-height: 100vh;
+    height: auto;
+  }
+
+  .welcome-section,
+  .selection-section {
+    padding: 40px 20px;
+    min-height: 50vh;
+  }
+
+  .selection-box {
+    width: 90%;
+    padding: 30px 20px;
+    margin: 20px 0;
+  }
+
+  .exit-button {
+    top: 15px;
+    left: 15px;
+  }
+
+  .user-welcome {
+    flex-direction: column;
+    text-align: center;
+    padding: 12px 20px;
+  }
+
+  .user-welcome i {
+    margin-right: 0;
+    margin-bottom: 5px;
+  }
+}
+
+@media (max-width: 576px) {
+
+  .welcome-section,
+  .selection-section {
+    padding: 30px 15px;
+  }
+
+  .software-card {
+    padding: 20px;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .software-icon {
+    margin-right: 0;
+    margin-bottom: 15px;
+  }
+
+  .selection-box {
+    width: 95%;
+    padding: 25px 15px;
+  }
+}

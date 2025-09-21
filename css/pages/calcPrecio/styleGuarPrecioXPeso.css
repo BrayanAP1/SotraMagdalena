@@ -1,0 +1,289 @@
+:root {
+      --primary-color: #2ab64b;
+      --primary-dark: #1a8c39;
+      --secondary-color: #c2db34;
+      --accent-color: #3ce745;
+      --primary-gradient: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+      --secondary-gradient: linear-gradient(135deg, var(--secondary-color), #a8c41c);
+      --accent-gradient: linear-gradient(135deg, var(--accent-color), #2bc034);
+      --light-bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --text-dark: #343a40;
+      --text-muted: #6c757d;
+      --border-radius: 12px;
+      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.07);
+      --transition: all 0.3s ease;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+        url('https://img.freepik.com/fotos-premium/fondo-carpinteria_691588-5835.jpg?w=2000') no-repeat center center fixed;
+      background-size: cover;
+      min-height: 100vh;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+    }
+
+    .overlay {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .top-bar {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 1rem 1.5rem;
+      border-radius: var(--border-radius);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow-md);
+    }
+
+    .top-bar button {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 0.6rem 1.2rem;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 500;
+    }
+
+    .top-bar button:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-2px);
+    }
+
+    .top-bar .title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: var(--border-radius);
+      padding: 2rem;
+      box-shadow: var(--shadow-md);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid var(--primary-color);
+    }
+
+    .card-header h3 {
+      font-weight: 600;
+      color: white;
+    }
+
+    .icon-large {
+      font-size: 2.5rem;
+    }
+
+    .success-icon {
+      color: var(--primary-color);
+    }
+
+    .error-icon {
+      color: #ff4d4f;
+    }
+
+    .warning-icon {
+      color: #faad14;
+    }
+
+    .status-message {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      border-radius: var(--border-radius);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .success-message {
+      border-left: 4px solid var(--primary-color);
+    }
+
+    .error-message {
+      border-left: 4px solid #ff4d4f;
+    }
+
+    .warning-message {
+      border-left: 4px solid #faad14;
+    }
+
+    .status-message h2 {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .success-message h2 {
+      color: var(--primary-color);
+    }
+
+    .error-message h2 {
+      color: #ff4d4f;
+    }
+
+    .warning-message h2 {
+      color: #faad14;
+    }
+
+    .details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .detail-item {
+      margin-bottom: 1rem;
+    }
+
+    .detail-label {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 0.25rem;
+    }
+
+    .detail-value {
+      font-weight: 500;
+      color: white;
+      word-break: break-word;
+    }
+
+    .price-highlight {
+      background: rgba(42, 182, 75, 0.15);
+      padding: 1.5rem;
+      border-radius: var(--border-radius);
+      text-align: center;
+      margin: 1.5rem 0;
+      border: 1px solid rgba(42, 182, 75, 0.3);
+    }
+
+    .price-label {
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 0.5rem;
+    }
+
+    .price-value {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    .rango-info {
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 0.5rem;
+    }
+
+    .btn-container {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 0.875rem 1.75rem;
+      border-radius: 8px;
+      font-weight: 500;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary-gradient);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, var(--primary-dark), #167a30);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    @media (max-width: 600px) {
+      .top-bar {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+      }
+
+      .top-bar .title {
+        order: -1;
+      }
+
+      .details-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .btn-container {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
