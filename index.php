@@ -30,7 +30,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'];
 
     // Consulta segura con PDO
-    $stmt = $conn->prepare("SELECT id, nombre, rol, password FROM usuarios WHERE username = :username AND estado = 1");
+    $stmt = $conn->prepare("SELECT id, nombre, rol, password FROM usuarios WHERE username = :username AND estado = true");
     $stmt->execute(['username' => $username]);
     $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
