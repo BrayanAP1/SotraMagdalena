@@ -1,11 +1,14 @@
 # Imagen base con PHP 8.2
 FROM php:8.2-cli
 
-# Copiamos los archivos del proyecto al contenedor
+# Instalar extensiones necesarias para PostgreSQL
+RUN apt-get update && apt-get install -y libpq-dev && docker-php-ext-install pdo pdo_pgsql pgsql
+
+# Copiar los archivos del proyecto
 COPY . /app
 WORKDIR /app
 
-# Exponemos el puerto que Render usa (10000)
+# Exponer el puerto que Render usa
 EXPOSE 10000
 
 # Comando para iniciar el servidor PHP

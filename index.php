@@ -9,15 +9,18 @@ session_set_cookie_params([
 ]);
 session_start();
 
-// Conexión
-$host = "localhost";
-$user = "root";
-$pass = "";
-$db = "enviosdb";
+// 🔗 Conexión a PostgreSQL
+$host = "dpg-d3he09ali9vc73e2a6o0-a"; // <-- CAMBIA por tu host real de Render
+$db   = "enviosdb";               // <-- nombre de tu base de datos
+$user = "enviosdb_user";             // <-- usuario de Render
+$pass = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH";          // <-- contraseña de Render
+$port = "5432";                   // puerto de PostgreSQL
 
-$conn = new mysqli($host, $user, $pass, $db);
-if ($conn->connect_error) {
-    die("Error de conexión: " . $conn->connect_error);
+try {
+    $conn = new PDO("pgsql:host=$host;port=$port;dbname=$db", $user, $pass);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Error de conexión: " . $e->getMessage());
 }
 
 $error = "";
@@ -26,16 +29,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = trim($_POST['username']);
     $password = $_POST['password'];
 
-    $stmt = $conn->prepare("SELECT id, nombre, rol, password FROM usuarios WHERE username = ? AND estado = 1");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    // Consulta segura con PDO
+    $stmt = $conn->prepare("SELECT id, nombre, rol, password FROM usuarios WHERE username = :username AND estado = 1");
+    $stmt->execute(['username' => $username]);
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    if ($result && $result->num_rows === 1) {
-        $user = $result->fetch_assoc();
+    if ($result && count($result) === 1) {
+        $user = $result[0];
 
         if (password_verify($password, $user['password'])) {
-            //REGENERAR ID DE SESIÓN
+            // Regenerar ID de sesión
             session_regenerate_id(true);
 
             $_SESSION['id'] = $user['id'];
@@ -55,10 +58,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } else {
         $error = "Usuario o contraseña incorrectos.";
     }
-
-    $stmt->close();
 }
-$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -95,13 +95,12 @@ $conn->close();
           <input type="password" name="password" id="password" placeholder="PASSWORD" required>
         </div>
         <?php if ($error != "") { ?>
-          <div class="error-message"><?= $error ?></div>
+          <div class="error-message"><?= htmlspecialchars($error) ?></div>
         <?php } ?>
         <button type="submit">LOGIN</button>
       </form>
     </div>
   </div>
 </div>
-
 </body>
 </html>
