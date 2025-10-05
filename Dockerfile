@@ -1,11 +1,11 @@
-# Imagen base de PHP
+# Imagen base con PHP 8.2
 FROM php:8.2-cli
 
-# Copia los archivos del proyecto
+# Copiamos los archivos del proyecto al contenedor
 COPY . /app
 WORKDIR /app
 
-# Expone el puerto que Render necesita
+# Exponemos el puerto que Render usa (10000)
 EXPOSE 10000
 
 # Comando para iniciar el servidor PHP
