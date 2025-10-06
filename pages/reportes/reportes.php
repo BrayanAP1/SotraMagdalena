@@ -14,10 +14,10 @@ if ($_SESSION['rol'] !== 'usuario' && $_SESSION['rol'] !== 'administrador') {
 }
 
 // Conexión con PostgreSQL (PDO)
-$host = "localhost";
+$host = "dpg-d3he09ali9vc73e2a6o0-a";
 $dbname = "enviosdb";
-$user = "postgres";
-$pass = "tu_contraseña_aquí"; // 👈 cámbiala
+$user = "enviosdb_user";
+$pass = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; 
 
 try {
   $conn = new PDO("pgsql:host=$host;dbname=$dbname", $user, $pass);
