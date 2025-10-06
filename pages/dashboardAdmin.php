@@ -84,11 +84,17 @@ $meses = array_unique(array_merge(array_keys($enviosPorMesDim), array_keys($envi
 // Usuarios activos e inactivos
 $sqlEstadoUsuarios = "
 SELECT 
-  SUM(CASE WHEN estado = 1 THEN 1 ELSE 0 END) AS activos,
-  SUM(CASE WHEN estado = 0 THEN 1 ELSE 0 END) AS inactivos
+  SUM(CASE WHEN estado = TRUE THEN 1 ELSE 0 END) AS activos,
+  SUM(CASE WHEN estado = FALSE THEN 1 ELSE 0 END) AS inactivos
 FROM usuarios";
 $resultEstadoUsuarios = pg_query($conn, $sqlEstadoUsuarios);
+
+if (!$resultEstadoUsuarios) {
+    die("Error en la consulta de usuarios: " . pg_last_error($conn));
+}
+
 $estadoUsuarios = pg_fetch_assoc($resultEstadoUsuarios);
+
 
 // Últimos envíos
 $sqlUltimosEnvios = "
