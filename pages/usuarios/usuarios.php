@@ -1,11 +1,10 @@
-<?php 
-include("conexion.php"); 
-
+<?php
+include("conexion.php");
 session_start();
 
 // Verificar que haya sesión iniciada
 if (!isset($_SESSION['id']) || !isset($_SESSION['rol'])) {
-    header("Location: ../index.php"); 
+    header("Location: ../index.php");
     exit();
 }
 
@@ -15,56 +14,73 @@ if ($_SESSION['rol'] !== 'administrador') {
     exit();
 }
 
+$mensaje = null;
+$tipo_mensaje = null;
+
 // Procesar cambios de estado
-if (isset($_GET['cambiar_estado'])) {
+if (isset($_GET['cambiar_estado']) && isset($_GET['id'])) {
     $id = intval($_GET['id']);
     $nuevo_estado = intval($_GET['cambiar_estado']);
-    
-    $sql = "UPDATE usuarios SET estado = $nuevo_estado WHERE id = $id";
-    if ($conn->query($sql)) {
+
+    try {
+        $sql = "UPDATE usuarios SET estado = :estado WHERE id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([':estado' => $nuevo_estado, ':id' => $id]);
+
         $mensaje = $nuevo_estado ? "Usuario activado correctamente" : "Usuario desactivado correctamente";
         $tipo_mensaje = "success";
-    } else {
-        $mensaje = "Error al cambiar estado: " . $conn->error;
+    } catch (PDOException $e) {
+        $mensaje = "Error al cambiar estado: " . $e->getMessage();
         $tipo_mensaje = "danger";
     }
 }
 
 // Búsqueda y filtrado
+$where = [];
+$params = [];
 $filtro = "";
-$where = "";
 
 if (isset($_GET['buscar']) && !empty($_GET['buscar'])) {
-    $busqueda = $conn->real_escape_string($_GET['buscar']);
-    $where = "WHERE (nombre LIKE '%$busqueda%' OR username LIKE '%$busqueda%' OR rol LIKE '%$busqueda%')";
-    $filtro = $_GET['buscar'];
+    $busqueda = trim($_GET['buscar']);
+    $where[] = "(nombre ILIKE :busqueda OR username ILIKE :busqueda OR rol ILIKE :busqueda)";
+    $params[':busqueda'] = "%$busqueda%";
+    $filtro = $busqueda;
 }
 
 if (isset($_GET['rol']) && $_GET['rol'] != 'todos') {
-    $rol = $conn->real_escape_string($_GET['rol']);
-    $where .= $where ? " AND rol = '$rol'" : "WHERE rol = '$rol'";
+    $where[] = "rol = :rol";
+    $params[':rol'] = $_GET['rol'];
 }
 
 if (isset($_GET['estado']) && $_GET['estado'] != 'todos') {
-    $estado = intval($_GET['estado']);
-    $where .= $where ? " AND estado = $estado" : "WHERE estado = $estado";
+    $where[] = "estado = :estado";
+    $params[':estado'] = intval($_GET['estado']);
+}
+
+$where_sql = "";
+if (count($where) > 0) {
+    $where_sql = "WHERE " . implode(" AND ", $where);
 }
 
 // Obtener usuarios
-$sql = "SELECT * FROM usuarios $where ORDER BY nombre ASC";
-$result = $conn->query($sql);
-$total_usuarios = $result->num_rows;
+$sql = "SELECT * FROM usuarios $where_sql ORDER BY nombre ASC";
+$stmt = $conn->prepare($sql);
+$stmt->execute($params);
+$usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$total_usuarios = count($usuarios);
 
 // Estadísticas
-$stats_sql = "SELECT 
-    COUNT(*) as total,
-    SUM(estado = 1) as activos,
-    SUM(estado = 0) as inactivos,
-    SUM(rol = 'administrador') as admins,
-    SUM(rol = 'usuario') as usuarios
-    FROM usuarios";
+$stats_sql = "
+    SELECT 
+        COUNT(*) AS total,
+        SUM(CASE WHEN estado = 1 THEN 1 ELSE 0 END) AS activos,
+        SUM(CASE WHEN estado = 0 THEN 1 ELSE 0 END) AS inactivos,
+        SUM(CASE WHEN rol = 'administrador' THEN 1 ELSE 0 END) AS admins,
+        SUM(CASE WHEN rol = 'usuario' THEN 1 ELSE 0 END) AS usuarios
+    FROM usuarios
+";
 $stats_result = $conn->query($stats_sql);
-$stats = $stats_result->fetch_assoc();
+$stats = $stats_result->fetch(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="es">
