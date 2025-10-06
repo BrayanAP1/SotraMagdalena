@@ -1,10 +1,4 @@
 <?php
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-$servername = "localhost";
-$username   = "root";
-$password   = "";
-$dbname     = "enviosdb";
-
 session_start();
 
 // Verificar que haya sesión iniciada
@@ -19,20 +13,25 @@ if ($_SESSION['rol'] !== 'usuario' && $_SESSION['rol'] !== 'administrador') {
     exit();
 }
 
+// Conexión a PostgreSQL con PDO
+$host = "dpg-d3he09ali9vc73e2a6o0-a";
+$dbname = "enviosdb";
+$user = "enviosdb_user";
+$pass = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; // 👈 cambia esto
+
 try {
-    $conn = new mysqli($servername, $username, $password, $dbname);
-    $conn->set_charset("utf8mb4");
-} catch (mysqli_sql_exception $e) {
+    $conn = new PDO("pgsql:host=$host;dbname=$dbname", $user, $pass);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
     die("Error de conexión: " . $e->getMessage());
 }
 
 // Procesar eliminación de proveedor
 if (isset($_GET['eliminar'])) {
     $id = $_GET['eliminar'];
-    $sql = "DELETE FROM proveedores WHERE id = ?";
+    $sql = "DELETE FROM proveedores WHERE id = :id";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $id);
-    if ($stmt->execute()) {
+    if ($stmt->execute([':id' => $id])) {
         $_SESSION['mensaje'] = "Proveedor eliminado correctamente";
         $_SESSION['tipo_mensaje'] = "success";
     } else {
@@ -45,16 +44,23 @@ if (isset($_GET['eliminar'])) {
 
 // Procesar edición de proveedor
 if (isset($_POST['editar'])) {
-    $id       = $_POST['id'];
-    $nombre   = $_POST['nombre'];
+    $id        = $_POST['id'];
+    $nombre    = $_POST['nombre'];
     $direccion = $_POST['direccion'];
-    $telefono = $_POST['telefono'];
-    $correo   = $_POST['correo'];
+    $telefono  = $_POST['telefono'];
+    $correo    = $_POST['correo'];
 
-    $sql = "UPDATE proveedores SET nombre = ?, direccion = ?, telefono = ?, correo = ? WHERE id = ?";
+    $sql = "UPDATE proveedores 
+            SET nombre = :nombre, direccion = :direccion, telefono = :telefono, correo = :correo 
+            WHERE id = :id";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssssi", $nombre, $direccion, $telefono, $correo, $id);
-    if ($stmt->execute()) {
+    if ($stmt->execute([
+        ':nombre' => $nombre,
+        ':direccion' => $direccion,
+        ':telefono' => $telefono,
+        ':correo' => $correo,
+        ':id' => $id
+    ])) {
         $_SESSION['mensaje'] = "Proveedor actualizado correctamente";
         $_SESSION['tipo_mensaje'] = "success";
     } else {
@@ -67,15 +73,20 @@ if (isset($_POST['editar'])) {
 
 // Procesar agregar proveedor
 if (isset($_POST['agregar'])) {
-    $nombre   = $_POST['nombre'];
+    $nombre    = $_POST['nombre'];
     $direccion = $_POST['direccion'];
-    $telefono = $_POST['telefono'];
-    $correo   = $_POST['correo'];
+    $telefono  = $_POST['telefono'];
+    $correo    = $_POST['correo'];
 
-    $sql = "INSERT INTO proveedores (nombre, direccion, telefono, correo, fecha_registro) VALUES (?, ?, ?, ?, NOW())";
+    $sql = "INSERT INTO proveedores (nombre, direccion, telefono, correo, fecha_registro)
+            VALUES (:nombre, :direccion, :telefono, :correo, NOW())";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssss", $nombre, $direccion, $telefono, $correo);
-    if ($stmt->execute()) {
+    if ($stmt->execute([
+        ':nombre' => $nombre,
+        ':direccion' => $direccion,
+        ':telefono' => $telefono,
+        ':correo' => $correo
+    ])) {
         $_SESSION['mensaje'] = "Proveedor agregado correctamente";
         $_SESSION['tipo_mensaje'] = "success";
     } else {
@@ -88,28 +99,22 @@ if (isset($_POST['agregar'])) {
 
 // Obtener todos los proveedores
 $sql = "SELECT * FROM proveedores ORDER BY fecha_registro DESC";
-$result = $conn->query($sql);
-$proveedores = [];
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $proveedores[] = $row;
-    }
-}
+$stmt = $conn->query($sql);
+$proveedores = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Obtener estadísticas para las tarjetas
-$total_proveedores = is_array($proveedores) ? count($proveedores) : 0;
+// Obtener estadísticas
+$total_proveedores = count($proveedores);
 $activos_mes = $total_proveedores > 0 ? round($total_proveedores * 0.8) : 0;
-$nuevos_mes = $total_proveedores > 0 ? round($total_proveedores * 0.15) : 0;
-$premium = $total_proveedores > 0 ? round($total_proveedores * 0.25) : 0;
+$nuevos_mes  = $total_proveedores > 0 ? round($total_proveedores * 0.15) : 0;
+$premium     = $total_proveedores > 0 ? round($total_proveedores * 0.25) : 0;
 
-
-// consulta: contar proveedores por mes
-$sql = "SELECT MONTH(fecha_registro) AS mes, COUNT(*) AS total 
+// Contar proveedores por mes
+$sql = "SELECT EXTRACT(MONTH FROM fecha_registro) AS mes, COUNT(*) AS total 
         FROM proveedores 
-        GROUP BY MONTH(fecha_registro)";
-$result = $conn->query($sql);
+        GROUP BY mes
+        ORDER BY mes";
+$stmt = $conn->query($sql);
 
-// arrays para JS
 $meses = [];
 $totales = [];
 
@@ -128,13 +133,12 @@ $nombreMes = [
     12 => "Diciembre"
 ];
 
-while ($row = $result->fetch_assoc()) {
-    $meses[] = $nombreMes[$row["mes"]];
-    $totales[] = $row["total"];
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $meses[] = $nombreMes[(int)$row['mes']];
+    $totales[] = $row['total'];
 }
-
-
 ?>
+
 
 <!DOCTYPE html>
 <html lang="es">
