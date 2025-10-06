@@ -8,11 +8,11 @@ if (!isset($_SESSION['id'])) {
 }
 
 // CONEXIÓN A POSTGRESQL
-$host = "localhost";
-$port = "5432";
-$dbname = "enviosdb";
-$user = "postgres";
-$pass = "tu_contraseña";
+$host = "dpg-d3he09ali9vc73e2a6o0-a"; // <-- CAMBIA por tu host real de Render
+$db   = "enviosdb";               // <-- nombre de tu base de datos
+$user = "enviosdb_user";             // <-- usuario de Render
+$pass = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH";          // <-- contraseña de Render
+$port = "5432";     
 
 $conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$pass");
 if (!$conn) {
