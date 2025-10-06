@@ -73,8 +73,8 @@ $total_usuarios = count($usuarios);
 $stats_sql = "
     SELECT 
         COUNT(*) AS total,
-        SUM(CASE WHEN estado = 1 THEN 1 ELSE 0 END) AS activos,
-        SUM(CASE WHEN estado = 0 THEN 1 ELSE 0 END) AS inactivos,
+        SUM(CASE WHEN estado THEN 1 ELSE 0 END) AS activos,
+        SUM(CASE WHEN NOT estado THEN 1 ELSE 0 END) AS inactivos,
         SUM(CASE WHEN rol = 'administrador' THEN 1 ELSE 0 END) AS admins,
         SUM(CASE WHEN rol = 'usuario' THEN 1 ELSE 0 END) AS usuarios
     FROM usuarios
