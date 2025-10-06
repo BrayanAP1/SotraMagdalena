@@ -206,7 +206,7 @@ $ultimos_envios = $stmt->fetchAll(PDO::FETCH_ASSOC);
       </a>
       <div>
         <span class="navbar-text me-3">Hola, <?php echo $_SESSION['nombre'] ?? 'Usuario'; ?></span>
-        <a href="../login/logout.php" class="btn btn-light">
+        <a href="../../login/logout.php" class="btn btn-light">
           <i class="fas fa-sign-out-alt me-1"></i> Cerrar sesión
         </a>
       </div>
