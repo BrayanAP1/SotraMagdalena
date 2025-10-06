@@ -116,11 +116,18 @@ if (!$factura) {
 
             <?php
             $subtotal = $factura['precio'];
-            $total = $subtotal;
+            $iva = $subtotal * 0.19;
+            $total = $subtotal + $iva;
             ?>
             <div class="totals">
-                <?= number_format($subtotal, 0, ',', '.') ?>
-                <?= number_format($iva, 0, ',', '.') ?>
+                <div class="totals-row">
+                    <div>SUBTOTAL:</div>
+                    <div>$<?= number_format($subtotal, 0, ',', '.') ?></div>
+                </div>
+                <div class="totals-row">
+                    <div>IVA (19%):</div>
+                    <div>$<?= number_format($iva, 0, ',', '.') ?></div>
+                </div>
                 <div class="totals-row final">
                     <div>TOTAL:</div>
                     <div>$<?= number_format($total, 0, ',', '.') ?></div>
