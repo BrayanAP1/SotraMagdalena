@@ -1,14 +1,4 @@
 <?php
-$host = "localhost";
-$user = "root";
-$pass = "";
-$db   = "enviosdb";
-
-$conn = new mysqli($host, $user, $pass, $db);
-if ($conn->connect_error) {
-    die("Error en la conexión: " . $conn->connect_error);
-}
-
 session_start();
 
 if (!isset($_SESSION['id'])) {
@@ -18,24 +8,41 @@ if (!isset($_SESSION['id'])) {
 
 date_default_timezone_set('America/Bogota');
 
-// OBTENER ID DEL ENVÍO
+// 🔹 Datos de conexión
+$host = "dpg-d3he09ali9vc73e2a6o0-a";
+$port = "5432";
+$dbname = "enviosdb";
+$user = "enviosdb_user"; // cambia según tu configuración
+$password = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; // agrega tu contraseña si aplica
+
+try {
+    $conn = new PDO("pgsql:host=$host;port=$port;dbname=$dbname", $user, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Error en la conexión: " . $e->getMessage());
+}
+
+// 🔹 Obtener ID del envío
 $id_envio = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
+// 🔹 Consulta SQL con JOIN
 $sql = "SELECT e.id, e.nombre_cliente, e.direccion_origen, e.direccion_destino, e.contenido, 
                e.ancho, e.alto, e.largo, e.precio, e.rango, e.fecha_registro,
                u.nombre AS usuario_nombre, u.username, u.rol
         FROM enviosxdimensiones e
         JOIN usuarios u ON e.usuario_id = u.id
-        WHERE e.id = ?";
+        WHERE e.id = :id_envio";
+
 $stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $id_envio);
-$stmt->execute();
-$result = $stmt->get_result();
-$factura = $result->fetch_assoc();
+$stmt->execute([':id_envio' => $id_envio]);
+
+$factura = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$factura) {
     die("⚠ No se encontró la factura con ID $id_envio");
 }
+
+// Puedes continuar usando $factura['campo'] para mostrar datos
 ?>
 <!DOCTYPE html>
 <html lang="es">

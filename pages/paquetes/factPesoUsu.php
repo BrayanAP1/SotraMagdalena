@@ -6,40 +6,48 @@ if (!isset($_SESSION['id'])) {
     exit();
 }
 
-// Conexión
-$servername = "localhost";
-$username   = "root";
-$password   = "";
-$dbname     = "enviosdb";
-$conn = new mysqli($servername, $username, $password, $dbname);
-if ($conn->connect_error) {
-    die("Conexión fallida: " . $conn->connect_error);
-}
-
 date_default_timezone_set('America/Bogota');
 
-// Validar id recibido
+// 🔹 Conexión a PostgreSQL
+$host = "dpg-d3he09ali9vc73e2a6o0-a";
+$port = "5432";
+$dbname = "enviosdb";
+$user = "enviosdb_user";       // cambia si tu usuario es distinto
+$password = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; // agrega tu contraseña si tiene
+
+try {
+    $conn = new PDO("pgsql:host=$host;port=$port;dbname=$dbname", $user, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Conexión fallida: " . $e->getMessage());
+}
+
+// 🔹 Validar ID recibido
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     die("⚠ ID de envío inválido.");
 }
 
 $id_envio = intval($_GET['id']);
 
-// Traer datos del envío con datos del usuario
+// 🔹 Consulta preparada con JOIN
 $sql = "SELECT e.*, u.nombre AS usuario_nombre, u.username, u.rol 
         FROM enviosxpeso e
         INNER JOIN usuarios u ON e.usuario_id = u.id
-        WHERE e.id = $id_envio
+        WHERE e.id = :id_envio
         LIMIT 1";
-$result = $conn->query($sql);
 
-if ($result->num_rows === 0) {
+$stmt = $conn->prepare($sql);
+$stmt->execute([':id_envio' => $id_envio]);
+
+$envio = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$envio) {
     die("⚠ No se encontró la factura con ID $id_envio");
 }
 
-$envio = $result->fetch_assoc();
-$conn->close();
+$conn = null; // cerrar conexión
 ?>
+
 
 <!DOCTYPE html>
 <html lang="es">
