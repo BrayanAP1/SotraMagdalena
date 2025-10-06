@@ -14,7 +14,7 @@ session_start();
 
 //Verificar si hay sesión activa
 if (!isset($_SESSION['id'])) {
-    header("Location: /Sotramagdalena/index.php");
+    header("Location: /index.php");
     exit();
 }
 
@@ -23,7 +23,7 @@ $tiempo_inactividad = 1800; // 30 minutos
 if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > $tiempo_inactividad)) {
     session_unset();
     session_destroy();
-    header("Location: /Sotramagdalena/index.php?timeout=1");
+    header("Location: /index.php?timeout=1");
     exit();
 }
 $_SESSION['LAST_ACTIVITY'] = time(); // renovar tiempo de actividad
@@ -34,7 +34,7 @@ if (!isset($_SESSION['USER_AGENT'])) {
 } elseif ($_SESSION['USER_AGENT'] !== $_SERVER['HTTP_USER_AGENT']) {
     session_unset();
     session_destroy();
-    header("Location: /Sotramagdalena/index.php");
+    header("Location: /index.php");
     exit();
 }
 ?>
