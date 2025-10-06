@@ -149,7 +149,7 @@ if (!$factura) {
         <button class="print-btn" onclick="window.print()">
             <i class="fas fa-print me-2"></i> Imprimir Factura
         </button>
-        <button class="print-btn" onclick="window.location.href='/Sotramagdalena/pages/dashboardPrecios.php'">
+        <button class="print-btn" onclick="window.location.href='../dashboardPrecios.php'">
             <i class="fas fa-arrow-left"></i> Volver a Paquetes
         </button>
     </div>
