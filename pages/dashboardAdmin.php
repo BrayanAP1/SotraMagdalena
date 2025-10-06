@@ -7,142 +7,112 @@ if (!isset($_SESSION['rol']) || $_SESSION['rol'] != 'administrador') {
   exit();
 }
 
-// Conexión a la base de datos
-$servername = "localhost";
-$username = "root";
-$password = "";
+// Conexión PostgreSQL
+$host = "d3he09ali9vc73e2a6o0";
 $dbname = "enviosdb";
+$user = "enviosdb_user"; // cámbialo si tu usuario es distinto
+$password = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; // pon tu contraseña real
 
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-// Verificar conexión
-if ($conn->connect_error) {
-  die("Conexión fallida: " . $conn->connect_error);
+$conn = pg_connect("host=$host dbname=$dbname user=$user password=$password");
+if (!$conn) {
+  die("Error al conectar a PostgreSQL: " . pg_last_error());
 }
 
 date_default_timezone_set('America/Bogota');
 
-// Consultar total de registros en enviosxdimensiones
+// Total en enviosxdimensiones
 $sqlDim = "SELECT COUNT(*) as totalDim FROM enviosxdimensiones";
-$resultDim = $conn->query($sqlDim);
-$rowDim = $resultDim->fetch_assoc();
-$totalDim = $rowDim['totalDim'];
+$resultDim = pg_query($conn, $sqlDim);
+$rowDim = pg_fetch_assoc($resultDim);
+$totalDim = $rowDim['totaldim'];
 
-// Consultar total de registros en enviosxpeso
+// Total en enviosxpeso
 $sqlPeso = "SELECT COUNT(*) as totalPeso FROM enviosxpeso";
-$resultPeso = $conn->query($sqlPeso);
-$rowPeso = $resultPeso->fetch_assoc();
-$totalPeso = $rowPeso['totalPeso'];
+$resultPeso = pg_query($conn, $sqlPeso);
+$rowPeso = pg_fetch_assoc($resultPeso);
+$totalPeso = $rowPeso['totalpeso'];
 
-// Consultar total de usuarios
+// Total usuarios
 $sqlUsuarios = "SELECT COUNT(*) as totalUsuarios FROM usuarios";
-$resultUsuarios = $conn->query($sqlUsuarios);
-$rowUsuarios = $resultUsuarios->fetch_assoc();
-$totalUsuarios = $rowUsuarios['totalUsuarios'];
+$resultUsuarios = pg_query($conn, $sqlUsuarios);
+$rowUsuarios = pg_fetch_assoc($resultUsuarios);
+$totalUsuarios = $rowUsuarios['totalusuarios'];
 
-// Consultar total de proveedores
+// Total proveedores
 $sqlProveedores = "SELECT COUNT(*) as totalProveedores FROM proveedores";
-$resultProveedores = $conn->query($sqlProveedores);
-$rowProveedores = $resultProveedores->fetch_assoc();
-$totalProveedores = $rowProveedores['totalProveedores'];
+$resultProveedores = pg_query($conn, $sqlProveedores);
+$rowProveedores = pg_fetch_assoc($resultProveedores);
+$totalProveedores = $rowProveedores['totalproveedores'];
 
-// Paquetes por dimensiones
-$sqlEnviosMensuales = "SELECT 
-    DATE_FORMAT(fecha_registro, '%M') as mes,
-    COUNT(*) as total
+// Paquetes por dimensiones (últimos 6 meses)
+$sqlEnviosMensuales = "
+SELECT 
+  TO_CHAR(fecha_registro, 'Month') as mes,
+  COUNT(*) as total
 FROM enviosxdimensiones
-WHERE fecha_registro >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-GROUP BY YEAR(fecha_registro), MONTH(fecha_registro)
-ORDER BY fecha_registro ASC";
-$resultEnviosMensuales = $conn->query($sqlEnviosMensuales);
+WHERE fecha_registro >= NOW() - INTERVAL '6 months'
+GROUP BY EXTRACT(YEAR FROM fecha_registro), EXTRACT(MONTH FROM fecha_registro), TO_CHAR(fecha_registro, 'Month')
+ORDER BY MIN(fecha_registro) ASC";
+$resultEnviosMensuales = pg_query($conn, $sqlEnviosMensuales);
 
 $enviosPorMesDim = [];
-while ($row = $resultEnviosMensuales->fetch_assoc()) {
-  $enviosPorMesDim[$row['mes']] = $row['total'];
+while ($row = pg_fetch_assoc($resultEnviosMensuales)) {
+  $mes = trim($row['mes']);
+  $enviosPorMesDim[$mes] = $row['total'];
 }
 
 // Paquetes por peso
-$sqlEnviosMensualesPeso = "SELECT 
-    DATE_FORMAT(fecha_registro, '%M') as mes,
-    COUNT(*) as total
+$sqlEnviosMensualesPeso = "
+SELECT 
+  TO_CHAR(fecha_registro, 'Month') as mes,
+  COUNT(*) as total
 FROM enviosxpeso
-WHERE fecha_registro >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-GROUP BY YEAR(fecha_registro), MONTH(fecha_registro)
-ORDER BY fecha_registro ASC";
-$resultEnviosMensualesPeso = $conn->query($sqlEnviosMensualesPeso);
+WHERE fecha_registro >= NOW() - INTERVAL '6 months'
+GROUP BY EXTRACT(YEAR FROM fecha_registro), EXTRACT(MONTH FROM fecha_registro), TO_CHAR(fecha_registro, 'Month')
+ORDER BY MIN(fecha_registro) ASC";
+$resultEnviosMensualesPeso = pg_query($conn, $sqlEnviosMensualesPeso);
 
 $enviosPorMesPeso = [];
-while ($row = $resultEnviosMensualesPeso->fetch_assoc()) {
-  $enviosPorMesPeso[$row['mes']] = $row['total'];
+while ($row = pg_fetch_assoc($resultEnviosMensualesPeso)) {
+  $mes = trim($row['mes']);
+  $enviosPorMesPeso[$mes] = $row['total'];
 }
 
 // Combinar meses
 $meses = array_unique(array_merge(array_keys($enviosPorMesDim), array_keys($enviosPorMesPeso)));
 
-// Consultar usuarios activos vs inactivos
-$sqlEstadoUsuarios = "SELECT 
-    SUM(estado = 1) as activos,
-    SUM(estado = 0) as inactivos 
-    FROM usuarios";
-$resultEstadoUsuarios = $conn->query($sqlEstadoUsuarios);
-$estadoUsuarios = $resultEstadoUsuarios->fetch_assoc();
+// Usuarios activos e inactivos
+$sqlEstadoUsuarios = "
+SELECT 
+  SUM(CASE WHEN estado = 1 THEN 1 ELSE 0 END) AS activos,
+  SUM(CASE WHEN estado = 0 THEN 1 ELSE 0 END) AS inactivos
+FROM usuarios";
+$resultEstadoUsuarios = pg_query($conn, $sqlEstadoUsuarios);
+$estadoUsuarios = pg_fetch_assoc($resultEstadoUsuarios);
 
-// Consultar últimos paquetes registrados - CORREGIDO
-$sqlUltimosEnvios = "(SELECT 
-    id, nombre_cliente, direccion_destino, fecha_registro, 'Dimensiones' as tipo 
-    FROM enviosxdimensiones 
-    ORDER BY fecha_registro DESC 
-    LIMIT 5)
-    UNION ALL
-    (SELECT 
-    id, nombre_cliente, direccion_destino, fecha_registro, 'Peso' as tipo 
-    FROM enviosxpeso 
-    ORDER BY fecha_registro DESC 
-    LIMIT 5)
-    ORDER BY fecha_registro DESC 
-    LIMIT 5";
-$resultUltimosEnvios = $conn->query($sqlUltimosEnvios);
+// Últimos envíos
+$sqlUltimosEnvios = "
+(SELECT 
+  id, nombre_cliente, direccion_destino, fecha_registro, 'Dimensiones' as tipo
+  FROM enviosxdimensiones
+  ORDER BY fecha_registro DESC
+  LIMIT 5)
+UNION ALL
+(SELECT 
+  id, nombre_cliente, direccion_destino, fecha_registro, 'Peso' as tipo
+  FROM enviosxpeso
+  ORDER BY fecha_registro DESC
+  LIMIT 5)
+ORDER BY fecha_registro DESC
+LIMIT 5";
+$resultUltimosEnvios = pg_query($conn, $sqlUltimosEnvios);
 
-// Total de paquetes (suma de ambos tipos)
+// Total paquetes
 $totalPaquetes = $totalDim + $totalPeso;
 
-// Obtener datos para las gráficas
-$mesesData = [];
-for ($i = 1; $i <= 12; $i++) {
-  $mesesData[$i] = [
-    'Dimensiones' => $enviosPorMesDim[$i] ?? 0,
-    'Peso' => $enviosPorMesPeso[$i] ?? 0
-  ];
-}
-
-// Obtener los últimos 6 meses con datos
-$ultimosMeses = [];
-$nombresMeses = [
-  1 => 'Enero',
-  2 => 'Febrero',
-  3 => 'Marzo',
-  4 => 'Abril',
-  5 => 'Mayo',
-  6 => 'Junio',
-  7 => 'Julio',
-  8 => 'Agosto',
-  9 => 'Septiembre',
-  10 => 'Octubre',
-  11 => 'Noviembre',
-  12 => 'Diciembre'
-];
-
-$mesActual = (int)date('n');
-for ($i = 0; $i < 6; $i++) {
-  $mes = $mesActual - $i;
-  if ($mes < 1) $mes += 12;
-  $ultimosMeses[$mes] = $nombresMeses[$mes];
-}
-
-$ultimosMeses = array_reverse($ultimosMeses, true);
-
-$conn->close();
+pg_close($conn);
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 
@@ -322,7 +292,7 @@ $conn->close();
           <div class="col-md-8">
             <div class="recent-activity">
               <h5 class="mb-3"><i class="fas fa-clock me-2"></i>Envíos Recientes</h5>
-              <?php if ($resultUltimosEnvios && $resultUltimosEnvios->num_rows > 0): ?>
+              <?php if ($resultUltimosEnvios && pg_num_rows($resultUltimosEnvios) > 0): ?>
                 <div class="table-responsive">
                   <table class="table table-hover">
                     <thead>
@@ -334,7 +304,7 @@ $conn->close();
                       </tr>
                     </thead>
                     <tbody>
-                      <?php while ($envio = $resultUltimosEnvios->fetch_assoc()): ?>
+                      <?php while ($envio = pg_fetch_assoc($resultUltimosEnvios)): ?>
                         <tr>
                           <td><?php echo htmlspecialchars($envio['nombre_cliente']); ?></td>
                           <td><?php echo htmlspecialchars($envio['direccion_destino']); ?></td>
