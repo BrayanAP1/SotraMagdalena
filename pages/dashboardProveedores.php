@@ -1,37 +1,39 @@
 <?php
 session_start();
 
-//PROTECCIÓN DE PÁGINA
+// PROTECCIÓN DE PÁGINA
 if (!isset($_SESSION['id'])) {
     header("Location: /Sotramagdalena/index.php");
     exit();
 }
 
-//CONEXIÓN
+// CONEXIÓN A POSTGRESQL
 $host = "localhost";
-$user = "root";
-$pass = "";
-$db = "enviosdb";
-$conn = new mysqli($host, $user, $pass, $db);
-if ($conn->connect_error) {
-    die("Error de conexión: " . $conn->connect_error);
+$port = "5432";
+$dbname = "enviosdb";
+$user = "postgres";
+$pass = "tu_contraseña";
+
+$conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$pass");
+if (!$conn) {
+    die("❌ Error de conexión a PostgreSQL: " . pg_last_error());
 }
 
-//AGREGAR PROVEEDOR
+// AGREGAR PROVEEDOR
 if (isset($_POST['guardar'])) {
-    $nombre = $conn->real_escape_string($_POST['nombre']);
-    $direccion = $conn->real_escape_string($_POST['direccion']);
-    $telefono = $conn->real_escape_string($_POST['telefono']);
-    $correo = $conn->real_escape_string($_POST['correo']);
+    $nombre = pg_escape_string($conn, $_POST['nombre']);
+    $direccion = pg_escape_string($conn, $_POST['direccion']);
+    $telefono = pg_escape_string($conn, $_POST['telefono']);
+    $correo = pg_escape_string($conn, $_POST['correo']);
 
-    $sql = "INSERT INTO proveedores (nombre, direccion, telefono, correo, fecha_registro) 
-            VALUES ('$nombre','$direccion','$telefono','$correo', NOW())";
+    $sql = "INSERT INTO proveedores (nombre, direccion, telefono, correo, fecha_registro)
+            VALUES ('$nombre','$direccion','$telefono','$correo', CURRENT_TIMESTAMP)";
 
-    if ($conn->query($sql)) {
+    if (pg_query($conn, $sql)) {
         $_SESSION['mensaje'] = "Proveedor agregado correctamente";
         $_SESSION['tipo_mensaje'] = "success";
     } else {
-        $_SESSION['mensaje'] = "Error al agregar proveedor: " . $conn->error;
+        $_SESSION['mensaje'] = "Error al agregar proveedor: " . pg_last_error($conn);
         $_SESSION['tipo_mensaje'] = "error";
     }
 
@@ -39,15 +41,16 @@ if (isset($_POST['guardar'])) {
     exit();
 }
 
-//ELIMINAR PROVEEDOR
+// ELIMINAR PROVEEDOR
 if (isset($_GET['eliminar'])) {
     $id = intval($_GET['eliminar']);
+    $sql = "DELETE FROM proveedores WHERE id=$id";
 
-    if ($conn->query("DELETE FROM proveedores WHERE id=$id")) {
+    if (pg_query($conn, $sql)) {
         $_SESSION['mensaje'] = "Proveedor eliminado correctamente";
         $_SESSION['tipo_mensaje'] = "success";
     } else {
-        $_SESSION['mensaje'] = "Error al eliminar proveedor: " . $conn->error;
+        $_SESSION['mensaje'] = "Error al eliminar proveedor: " . pg_last_error($conn);
         $_SESSION['tipo_mensaje'] = "error";
     }
 
@@ -55,23 +58,23 @@ if (isset($_GET['eliminar'])) {
     exit();
 }
 
-//EDITAR PROVEEDOR
+// EDITAR PROVEEDOR
 if (isset($_POST['actualizar'])) {
     $id = intval($_POST['id']);
-    $nombre = $conn->real_escape_string($_POST['nombre']);
-    $direccion = $conn->real_escape_string($_POST['direccion']);
-    $telefono = $conn->real_escape_string($_POST['telefono']);
-    $correo = $conn->real_escape_string($_POST['correo']);
+    $nombre = pg_escape_string($conn, $_POST['nombre']);
+    $direccion = pg_escape_string($conn, $_POST['direccion']);
+    $telefono = pg_escape_string($conn, $_POST['telefono']);
+    $correo = pg_escape_string($conn, $_POST['correo']);
 
     $sql = "UPDATE proveedores SET 
             nombre='$nombre', direccion='$direccion', telefono='$telefono', correo='$correo'
             WHERE id=$id";
 
-    if ($conn->query($sql)) {
+    if (pg_query($conn, $sql)) {
         $_SESSION['mensaje'] = "Proveedor actualizado correctamente";
         $_SESSION['tipo_mensaje'] = "success";
     } else {
-        $_SESSION['mensaje'] = "Error al actualizar proveedor: " . $conn->error;
+        $_SESSION['mensaje'] = "Error al actualizar proveedor: " . pg_last_error($conn);
         $_SESSION['tipo_mensaje'] = "error";
     }
 
@@ -79,27 +82,26 @@ if (isset($_POST['actualizar'])) {
     exit();
 }
 
-//OBTENER LISTADO DE PROVEEDORES
-$result = $conn->query("SELECT * FROM proveedores ORDER BY nombre ASC");
+// OBTENER LISTADO DE PROVEEDORES
+$result = pg_query($conn, "SELECT * FROM proveedores ORDER BY nombre ASC");
 
-//PARA EDITAR PROVEEDOR
+// PARA EDITAR PROVEEDOR
 $proveedorEditar = null;
 if (isset($_GET['editar'])) {
     $id = intval($_GET['editar']);
-    $res = $conn->query("SELECT * FROM proveedores WHERE id=$id");
+    $res = pg_query($conn, "SELECT * FROM proveedores WHERE id=$id");
 
-    if ($res && $res->num_rows > 0) {
-        $proveedorEditar = $res->fetch_assoc();
+    if ($res && pg_num_rows($res) > 0) {
+        $proveedorEditar = pg_fetch_assoc($res);
     }
 }
 
-//DATOS PARA GRÁFICOS
-// Gráfico 1: Proveedores por mes
-$grafico = $conn->query("
-    SELECT MONTH(fecha_registro) as mes, COUNT(*) as total 
-    FROM proveedores 
+// DATOS PARA GRÁFICOS
+$grafico = pg_query($conn, "
+    SELECT EXTRACT(MONTH FROM fecha_registro) AS mes, COUNT(*) AS total
+    FROM proveedores
     WHERE fecha_registro IS NOT NULL
-    GROUP BY MONTH(fecha_registro)
+    GROUP BY EXTRACT(MONTH FROM fecha_registro)
     ORDER BY mes
 ");
 
@@ -108,7 +110,7 @@ $totales = [];
 $nombresMeses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 if ($grafico) {
-    while ($row = $grafico->fetch_assoc()) {
+    while ($row = pg_fetch_assoc($grafico)) {
         $mesNumero = intval($row['mes']);
         if ($mesNumero >= 1 && $mesNumero <= 12) {
             $meses[] = $nombresMeses[$mesNumero - 1];
@@ -117,24 +119,30 @@ if ($grafico) {
     }
 }
 
-// Si no hay datos, mostrar datos de ejemplo para el gráfico
+// Si no hay datos, mostrar ejemplo
 if (empty($meses)) {
     $meses = ['Ene', 'Feb', 'Mar', 'Abr'];
     $totales = [2, 5, 3, 7];
 }
 
 // Estadísticas
-$totalProveedores = $result->num_rows;
-$proveedoresRecientes = $conn->query("
-    SELECT COUNT(*) as recientes 
-    FROM proveedores 
-    WHERE fecha_registro >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-")->fetch_assoc();
-$proveedoresRecientes = $proveedoresRecientes['recientes'] ?? 0;
+$totalProveedores = pg_num_rows($result);
 
-// Cerrar conexión
-$conn->close();
+$resRecientes = pg_query($conn, "
+    SELECT COUNT(*) AS recientes
+    FROM proveedores
+    WHERE fecha_registro >= (CURRENT_TIMESTAMP - INTERVAL '30 days')
+");
+
+$proveedoresRecientes = 0;
+if ($resRecientes) {
+    $proveedoresRecientes = pg_fetch_assoc($resRecientes)['recientes'];
+}
+
+// CERRAR CONEXIÓN
+pg_close($conn);
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 
@@ -280,9 +288,10 @@ $conn->close();
                     </thead>
                     <tbody>
                         <?php
-                        if ($result->num_rows > 0) {
-                            while ($row = $result->fetch_assoc()) {
+                        if (pg_num_rows($result) > 0) {
+                            while ($row = pg_fetch_assoc($result)) {
                         ?>
+
                                 <tr class="fade-in-up">
                                     <td><strong>#<?= $row['id'] ?></strong></td>
                                     <td><?= htmlspecialchars($row['nombre']) ?></td>
