@@ -6,18 +6,21 @@ if (!isset($_SESSION['id'])) {
     exit();
 }
 
-// Datos de conexión
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "enviosdb";
-
-$conn = new mysqli($servername, $username, $password, $dbname);
-if ($conn->connect_error) {
-    die("Conexión fallida: " . $conn->connect_error);
-}
-
 date_default_timezone_set('America/Bogota');
+
+// Conexión a PostgreSQL (PDO)
+$host = "dpg-d3he09ali9vc73e2a6o0-a";
+$port = "5432";
+$dbname = "enviosdb";
+$user = "enviosdb_user"; // cambia si tu usuario es distinto
+$password = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; // agrega la contraseña si tiene
+
+try {
+    $conn = new PDO("pgsql:host=$host;port=$port;dbname=$dbname", $user, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Error de conexión: " . $e->getMessage());
+}
 
 // Variables
 $id_envio = 0;
@@ -28,25 +31,41 @@ $detalles_envio = [];
 
 // Procesar formulario
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $nombre_cliente   = mysqli_real_escape_string($conn, $_POST['nombre_cliente']);
-    $direccion_origen = mysqli_real_escape_string($conn, $_POST['direccion_origen']);
-    $direccion_destino= mysqli_real_escape_string($conn, $_POST['direccion_destino']);
-    $contenido        = mysqli_real_escape_string($conn, $_POST['contenido']);
-    $ancho            = mysqli_real_escape_string($conn, $_POST['ancho']);
-    $alto             = mysqli_real_escape_string($conn, $_POST['alto']);
-    $largo            = mysqli_real_escape_string($conn, $_POST['largo']);
-    $precio           = mysqli_real_escape_string($conn, $_POST['precio']);
-    $rango            = mysqli_real_escape_string($conn, $_POST['rango']);
+    $nombre_cliente   = $_POST['nombre_cliente'] ?? '';
+    $direccion_origen = $_POST['direccion_origen'] ?? '';
+    $direccion_destino= $_POST['direccion_destino'] ?? '';
+    $contenido        = $_POST['contenido'] ?? '';
+    $ancho            = $_POST['ancho'] ?? '';
+    $alto             = $_POST['alto'] ?? '';
+    $largo            = $_POST['largo'] ?? '';
+    $precio           = $_POST['precio'] ?? '';
+    $rango            = $_POST['rango'] ?? '';
 
-    $sql = "INSERT INTO enviosxdimensiones 
-            (nombre_cliente, direccion_origen, direccion_destino, contenido, ancho, alto, largo, precio, rango, usuario_id)
-            VALUES 
-            ('$nombre_cliente', '$direccion_origen', '$direccion_destino', '$contenido', '$ancho', '$alto', '$largo', '$precio', '$rango', '{$_SESSION['id']}')";
+    try {
+        $sql = "INSERT INTO enviosxdimensiones 
+                (nombre_cliente, direccion_origen, direccion_destino, contenido, ancho, alto, largo, precio, rango, usuario_id)
+                VALUES 
+                (:nombre_cliente, :direccion_origen, :direccion_destino, :contenido, :ancho, :alto, :largo, :precio, :rango, :usuario_id)
+                RETURNING id";
 
-    if ($conn->query($sql) === TRUE) {
-        // Guardar datos en sesión
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ':nombre_cliente'   => $nombre_cliente,
+            ':direccion_origen' => $direccion_origen,
+            ':direccion_destino'=> $direccion_destino,
+            ':contenido'        => $contenido,
+            ':ancho'            => $ancho,
+            ':alto'             => $alto,
+            ':largo'            => $largo,
+            ':precio'           => $precio,
+            ':rango'            => $rango,
+            ':usuario_id'       => $_SESSION['id']
+        ]);
+
+        $id_envio = $stmt->fetchColumn(); // obtiene el id retornado
+
         $_SESSION['envio_guardado'] = [
-            'id_envio' => $conn->insert_id,
+            'id_envio' => $id_envio,
             'nombre_cliente' => $nombre_cliente,
             'direccion_origen' => $direccion_origen,
             'direccion_destino' => $direccion_destino,
@@ -59,32 +78,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             'fecha' => date('d/m/Y H:i:s')
         ];
 
-        // Redirigir para evitar doble inserción
         header("Location: " . $_SERVER['PHP_SELF'] . "?exito=1");
         exit();
-    } else {
-        $mensaje = "Error al registrar el envío: " . $conn->error;
+
+    } catch (PDOException $e) {
+        $mensaje = "Error al registrar el envío: " . $e->getMessage();
         $tipo_mensaje = "error";
         $mostrar_botones = true;
     }
 }
-
-// Si venimos de una redirección exitosa (GET)
+// Si venimos de una redirección exitosa
 elseif (isset($_GET['exito']) && isset($_SESSION['envio_guardado'])) {
     $detalles_envio = $_SESSION['envio_guardado'];
     $id_envio = $detalles_envio['id_envio'];
     $mensaje = "¡Envío registrado correctamente!";
     $tipo_mensaje = "success";
     $mostrar_botones = true;
-}
-
-// Si no es ni POST ni redirección válida
-else {
+} else {
     $mensaje = "Acceso no válido a esta página.";
     $tipo_mensaje = "warning";
 }
 
-$conn->close();
+$conn = null; // cerrar conexión
 ?>
 
 
