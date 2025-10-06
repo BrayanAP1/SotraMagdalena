@@ -2,18 +2,21 @@
 session_start();
 
 if (!isset($_SESSION['id'])) {
-    header("Location: /Sotramagdalena/index.php");
-    exit();
+  header("Location: /Sotramagdalena/index.php");
+  exit();
 }
 
-// Conexión
-$conn = new mysqli("localhost", "root", "", "enviosdb");
-$result = $conn->query("SELECT * FROM rangoxpeso ORDER BY peso_min ASC");
-$rangos = [];
-while ($row = $result->fetch_assoc()) {
-    $rangos[] = $row;
+try {
+  // 🔗 Conexión a PostgreSQL con PDO
+  $conn = new PDO("pgsql:host=dpg-d3he09ali9vc73e2a6o0-a;dbname=enviosdb;user=enviosdb_user;password=vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH");
+  $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+  // 📦 Consulta los rangos por peso
+  $stmt = $conn->query("SELECT * FROM rangoxpeso ORDER BY peso_min ASC");
+  $rangos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  die("Error de conexión: " . $e->getMessage());
 }
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
