@@ -124,12 +124,21 @@ $top_clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // --- 🔹 Envíos por usuario ---
 $sql_usuarios = "
-  SELECT u.username,
-    (SELECT COUNT(*) FROM enviosxdimensiones WHERE usuario_id = u.id AND fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds') AS dim_count,
-    (SELECT COUNT(*) FROM enviosxpeso WHERE usuario_id = u.id AND fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds') AS peso_count
-  FROM usuarios u
-  HAVING (dim_count + peso_count) > 0
-  ORDER BY (dim_count + peso_count) DESC
+  SELECT * FROM (
+    SELECT 
+      u.username,
+      (SELECT COUNT(*) 
+       FROM enviosxdimensiones 
+       WHERE usuario_id = u.id 
+       AND fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds') AS dim_count,
+      (SELECT COUNT(*) 
+       FROM enviosxpeso 
+       WHERE usuario_id = u.id 
+       AND fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds') AS peso_count
+    FROM usuarios u
+  ) AS sub
+  WHERE (sub.dim_count + sub.peso_count) > 0
+  ORDER BY (sub.dim_count + sub.peso_count) DESC
 ";
 $stmt = $conn->prepare($sql_usuarios);
 $stmt->execute([':inicio' => $fecha_inicio, ':fin' => $fecha_fin]);
