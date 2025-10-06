@@ -1,62 +1,59 @@
 <?php
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-$servername = "localhost";
-$username   = "root";
-$password   = "";
-$dbname     = "enviosdb";
-
+include("../usuarios/conexion.php");
 session_start();
 
-// Verificar que haya sesión iniciada
+// 🔒 Verificar sesión
 if (!isset($_SESSION['id']) || !isset($_SESSION['rol'])) {
     header("Location: ../index.php");
     exit();
 }
 
-// Verificar rol (admin puede entrar a todo, usuario solo a lo suyo)
+// 🔒 Rol permitido
 if ($_SESSION['rol'] !== 'usuario' && $_SESSION['rol'] !== 'administrador') {
     header("Location: ../index.php");
     exit();
 }
 
-try {
-    $conn = new mysqli($servername, $username, $password, $dbname);
-    $conn->set_charset("utf8mb4");
-} catch (mysqli_sql_exception $e) {
-    die("Error de conexión: " . $e->getMessage());
-}
-
-// Eliminar paquete si se pasa por GET
+// 🚀 Eliminar paquete
 if (isset($_GET['eliminar']) && isset($_GET['tabla'])) {
-    $id    = intval($_GET['eliminar']);
+    $id = intval($_GET['eliminar']);
     $tabla = ($_GET['tabla'] === 'dim') ? 'enviosxdimensiones' : 'enviosxpeso';
-    $conn->query("DELETE FROM `$tabla` WHERE id=$id");
-    header("Location: precios.php");
-    exit();
+
+    try {
+        $stmt = $conn->prepare("DELETE FROM $tabla WHERE id = :id");
+        $stmt->execute([':id' => $id]);
+        header("Location: precios.php?success=Paquete eliminado");
+        exit();
+    } catch (PDOException $e) {
+        die("Error al eliminar: " . $e->getMessage());
+    }
 }
 
-// Helper: obtener nombres de columnas de una tabla
-function getCols(mysqli $conn, string $table): array
-{
+// 🔧 Helper: obtener columnas de una tabla (PostgreSQL usa INFORMATION_SCHEMA)
+function getCols(PDO $conn, string $table): array {
     $cols = [];
-    $res = $conn->query("SHOW COLUMNS FROM `$table`");
-    while ($row = $res->fetch_assoc()) {
-        $cols[] = $row['Field'];
+    $stmt = $conn->prepare("
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = :table
+    ");
+    $stmt->execute([':table' => $table]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $cols[] = $row['column_name'];
     }
     return $cols;
 }
 
 // Helper: arma una lista "campo" o "NULL AS campo" si no existe
-function pick(array $cols, array $wanted): string
-{
+function pick(array $cols, array $wanted): string {
     $parts = [];
     foreach ($wanted as $w) {
-        $parts[] = in_array($w, $cols) ? "`$w`" : "NULL AS `$w`";
+        $parts[] = in_array($w, $cols) ? "\"$w\"" : "NULL AS \"$w\"";
     }
     return implode(", ", $parts);
 }
 
-// Procesar filtros
+// 🧮 Filtros
 $filtros = [];
 $where_conditions = [];
 
@@ -66,126 +63,97 @@ if (isset($_GET['tipo']) && $_GET['tipo'] !== 'todos') {
 }
 
 // Filtro por cliente
-if (isset($_GET['cliente']) && !empty($_GET['cliente'])) {
-    $filtros['cliente'] = $conn->real_escape_string($_GET['cliente']);
-    $where_conditions[] = "(nombre_cliente LIKE '%{$filtros['cliente']}%')";
+if (!empty($_GET['cliente'])) {
+    $cliente = trim($_GET['cliente']);
+    $where_conditions[] = "(nombre_cliente ILIKE :cliente)";
+    $filtros['cliente'] = "%$cliente%";
 }
 
-// Filtro por fecha
-if (isset($_GET['fecha_inicio']) && !empty($_GET['fecha_inicio'])) {
-    $filtros['fecha_inicio'] = $_GET['fecha_inicio'];
-    $where_conditions[] = "(fecha_registro >= '{$filtros['fecha_inicio']} 00:00:00')";
+// Filtro por fechas
+if (!empty($_GET['fecha_inicio'])) {
+    $where_conditions[] = "(fecha_registro >= :fecha_inicio)";
+    $filtros['fecha_inicio'] = $_GET['fecha_inicio'] . " 00:00:00";
 }
 
-if (isset($_GET['fecha_fin']) && !empty($_GET['fecha_fin'])) {
-    $filtros['fecha_fin'] = $_GET['fecha_fin'];
-    $where_conditions[] = "(fecha_registro <= '{$filtros['fecha_fin']} 23:59:59')";
+if (!empty($_GET['fecha_fin'])) {
+    $where_conditions[] = "(fecha_registro <= :fecha_fin)";
+    $filtros['fecha_fin'] = $_GET['fecha_fin'] . " 23:59:59";
 }
 
-// Filtro por rango de precio
+// Filtro por precios
 if (isset($_GET['precio_min']) && is_numeric($_GET['precio_min'])) {
+    $where_conditions[] = "(precio >= :precio_min)";
     $filtros['precio_min'] = floatval($_GET['precio_min']);
-    $where_conditions[] = "(precio >= {$filtros['precio_min']})";
 }
 
 if (isset($_GET['precio_max']) && is_numeric($_GET['precio_max'])) {
+    $where_conditions[] = "(precio <= :precio_max)";
     $filtros['precio_max'] = floatval($_GET['precio_max']);
-    $where_conditions[] = "(precio <= {$filtros['precio_max']})";
 }
 
-// Construir condición WHERE
+// Construir WHERE dinámico
 $where_clause = '';
 if (!empty($where_conditions)) {
     $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
 }
 
-// Columnas que esperamos
+// 🧱 Columnas
 $baseFields = ['id', 'nombre_cliente', 'direccion_origen', 'direccion_destino', 'contenido', 'precio', 'rango', 'fecha_registro'];
 $dimFields  = ['alto', 'largo', 'ancho'];
 $pesoField  = ['peso'];
 
-// --- Tabla enviosxdimensiones ---
-$colsDim = getCols($conn, 'enviosxdimensiones');
-$selDim  = pick($colsDim, $baseFields) . ", " . pick($colsDim, $dimFields) . ", " . pick($colsDim, $pesoField);
-
-// --- Tabla enviosxpeso ---
+// 🔍 Obtener columnas reales de cada tabla
+$colsDim  = getCols($conn, 'enviosxdimensiones');
 $colsPeso = getCols($conn, 'enviosxpeso');
-$selPeso  = pick($colsPeso, $baseFields) . ", " . pick($colsPeso, $dimFields) . ", " . pick($colsPeso, $pesoField);
+
+$selDim  = pick($colsDim, $baseFields) . ", " . pick($colsDim, $dimFields) . ", " . pick($colsDim, $pesoField);
+$selPeso = pick($colsPeso, $baseFields) . ", " . pick($colsPeso, $dimFields) . ", " . pick($colsPeso, $pesoField);
 
 $paquetes = [];
 
-// Construir consultas según filtros
-if (empty($filtros) || (isset($filtros['tipo']) && $filtros['tipo'] === 'todos') || !isset($filtros['tipo'])) {
-    // Consultar ambas tablas
-    $sql1 = "SELECT $selDim, 'Dimensiones' AS tipo, 'dim' AS tabla FROM `enviosxdimensiones`";
-    $sql2 = "SELECT $selPeso, 'Peso' AS tipo, 'peso' AS tabla FROM `enviosxpeso`";
+// 🔄 Consultar tablas según filtros
+try {
+    if (empty($_GET['tipo']) || $_GET['tipo'] === 'todos') {
+        $sql1 = "SELECT $selDim, 'Dimensiones' AS tipo, 'dim' AS tabla FROM enviosxdimensiones $where_clause";
+        $sql2 = "SELECT $selPeso, 'Peso' AS tipo, 'peso' AS tabla FROM enviosxpeso $where_clause";
 
-    // Aplicar WHERE si hay filtros
-    if (!empty($where_clause)) {
-        $sql1 .= " $where_clause";
-        $sql2 .= " $where_clause";
-    }
+        $stmt1 = $conn->prepare($sql1);
+        $stmt1->execute($filtros);
+        $paquetes = array_merge($paquetes, $stmt1->fetchAll(PDO::FETCH_ASSOC));
 
-    try {
-        $r1 = $conn->query($sql1);
-        while ($row = $r1->fetch_assoc()) {
-            $paquetes[] = $row;
-        }
-    } catch (mysqli_sql_exception $e) {
-    }
+        $stmt2 = $conn->prepare($sql2);
+        $stmt2->execute($filtros);
+        $paquetes = array_merge($paquetes, $stmt2->fetchAll(PDO::FETCH_ASSOC));
 
-    try {
-        $r2 = $conn->query($sql2);
-        while ($row = $r2->fetch_assoc()) {
-            $paquetes[] = $row;
-        }
-    } catch (mysqli_sql_exception $e) {
+    } elseif ($_GET['tipo'] === 'dimensiones') {
+        $sql = "SELECT $selDim, 'Dimensiones' AS tipo, 'dim' AS tabla FROM enviosxdimensiones $where_clause";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($filtros);
+        $paquetes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    } elseif ($_GET['tipo'] === 'peso') {
+        $sql = "SELECT $selPeso, 'Peso' AS tipo, 'peso' AS tabla FROM enviosxpeso $where_clause";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($filtros);
+        $paquetes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-} else {
-    // Consultar solo la tabla seleccionada
-    if ($filtros['tipo'] === 'dimensiones') {
-        $sql = "SELECT $selDim, 'Dimensiones' AS tipo, 'dim' AS tabla FROM `enviosxdimensiones`";
-        if (!empty($where_clause)) {
-            $sql .= " $where_clause";
-        }
-        try {
-            $r = $conn->query($sql);
-            while ($row = $r->fetch_assoc()) {
-                $paquetes[] = $row;
-            }
-        } catch (mysqli_sql_exception $e) {
-        }
-    } elseif ($filtros['tipo'] === 'peso') {
-        $sql = "SELECT $selPeso, 'Peso' AS tipo, 'peso' AS tabla FROM `enviosxpeso`";
-        if (!empty($where_clause)) {
-            $sql .= " $where_clause";
-        }
-        try {
-            $r = $conn->query($sql);
-            while ($row = $r->fetch_assoc()) {
-                $paquetes[] = $row;
-            }
-        } catch (mysqli_sql_exception $e) {
-        }
-    }
+} catch (PDOException $e) {
+    echo "⚠️ Error en la consulta: " . $e->getMessage();
 }
 
-// Ordenar por fecha
+// 📊 Ordenar por fecha
 usort($paquetes, function ($a, $b) {
     $ta = isset($a['fecha_registro']) ? strtotime($a['fecha_registro']) : 0;
     $tb = isset($b['fecha_registro']) ? strtotime($b['fecha_registro']) : 0;
     return $tb <=> $ta;
 });
 
-// Estadísticas para mostrar
+// 📈 Estadísticas
 $total_paquetes = count($paquetes);
-$total_dimensiones = count(array_filter($paquetes, function ($p) {
-    return ($p['tipo'] ?? '') === 'Dimensiones';
-}));
-$total_peso = count(array_filter($paquetes, function ($p) {
-    return ($p['tipo'] ?? '') === 'Peso';
-}));
+$total_dimensiones = count(array_filter($paquetes, fn($p) => ($p['tipo'] ?? '') === 'Dimensiones'));
+$total_peso = count(array_filter($paquetes, fn($p) => ($p['tipo'] ?? '') === 'Peso'));
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 
