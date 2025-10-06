@@ -1,12 +1,13 @@
 <?php
-$host = "localhost";
-$user = "root";
-$pass = "";
-$db   = "enviosdb";
+$host = "dpg-d3he09ali9vc73e2a6o0-a";
+$port = "5432";
+$dbname = "enviosdb";
+$user = "enviosdb_user";
+$password = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; // <-- cámbiala por la real
 
-$conn = new mysqli($host, $user, $pass, $db);
-if ($conn->connect_error) {
-    die("Error en la conexión: " . $conn->connect_error);
+$conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
+if (!$conn) {
+    die("❌ Error en la conexión a PostgreSQL");
 }
 
 session_start();
@@ -18,25 +19,29 @@ if (!isset($_SESSION['id'])) {
 
 date_default_timezone_set('America/Bogota');
 
-// OBTENER ID DEL ENVÍO
+// Obtener ID del envío
 $id_envio = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
+// Consulta SQL con parámetro seguro
 $sql = "SELECT e.id, e.nombre_cliente, e.direccion_origen, e.direccion_destino, e.contenido, 
                e.ancho, e.alto, e.largo, e.precio, e.rango, e.fecha_registro,
                u.nombre AS usuario_nombre, u.username, u.rol
         FROM enviosxdimensiones e
         JOIN usuarios u ON e.usuario_id = u.id
-        WHERE e.id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $id_envio);
-$stmt->execute();
-$result = $stmt->get_result();
-$factura = $result->fetch_assoc();
+        WHERE e.id = $1";
 
-if (!$factura) {
+$result = pg_query_params($conn, $sql, array($id_envio));
+
+if (!$result || pg_num_rows($result) === 0) {
     die("⚠ No se encontró la factura con ID $id_envio");
 }
+
+// Obtener datos
+$factura = pg_fetch_assoc($result);
+
+pg_close($conn);
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 
