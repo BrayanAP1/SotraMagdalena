@@ -1,54 +1,98 @@
 <?php
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "enviosdb";
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-// Verificar conexión
-if ($conn->connect_error) {
-  die("Conexión fallida: " . $conn->connect_error);
-}
-
 session_start();
 
-// Verificar que haya sesión iniciada
+// Verificar sesión
 if (!isset($_SESSION['id']) || !isset($_SESSION['rol'])) {
   header("Location: ../index.php");
   exit();
 }
 
-// Verificar rol (admin puede entrar a todo, usuario solo a lo suyo)
+// Verificar rol
 if ($_SESSION['rol'] !== 'usuario' && $_SESSION['rol'] !== 'administrador') {
   header("Location: ../index.php");
   exit();
 }
 
-// Obtener parámetros de filtro
+// Conexión con PostgreSQL (PDO)
+$host = "localhost";
+$dbname = "enviosdb";
+$user = "postgres";
+$pass = "tu_contraseña_aquí"; // 👈 cámbiala
+
+try {
+  $conn = new PDO("pgsql:host=$host;dbname=$dbname", $user, $pass);
+  $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+  die("Error de conexión: " . $e->getMessage());
+}
+
+// Parámetros de filtro
 date_default_timezone_set('America/Bogota');
-$fecha_inicio = isset($_GET['fecha_inicio']) ? $_GET['fecha_inicio'] : date('Y-m-01');
-$fecha_fin = isset($_GET['fecha_fin']) ? $_GET['fecha_fin'] : date('Y-m-d');
-$tipo_reporte = isset($_GET['tipo_reporte']) ? $_GET['tipo_reporte'] : 'resumen';
+$fecha_inicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
+$fecha_fin    = $_GET['fecha_fin'] ?? date('Y-m-d');
+$tipo_reporte = $_GET['tipo_reporte'] ?? 'resumen';
 
+// --- 🔹 Métricas principales ---
 
-// Consultas para métricas principales
-$total_dimensiones = $conn->query("SELECT COUNT(*) as total FROM enviosxdimensiones WHERE fecha_registro BETWEEN '$fecha_inicio' AND '$fecha_fin 23:59:59'")->fetch_assoc()['total'];
-$total_peso = $conn->query("SELECT COUNT(*) as total FROM enviosxpeso WHERE fecha_registro BETWEEN '$fecha_inicio' AND '$fecha_fin 23:59:59'")->fetch_assoc()['total'];
+// Total envíos por dimensiones
+$stmt = $conn->prepare("
+  SELECT COUNT(*) as total 
+  FROM enviosxdimensiones 
+  WHERE fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds'
+");
+$stmt->execute([':inicio' => $fecha_inicio, ':fin' => $fecha_fin]);
+$total_dimensiones = (int)$stmt->fetchColumn();
+
+// Total envíos por peso
+$stmt = $conn->prepare("
+  SELECT COUNT(*) as total 
+  FROM enviosxpeso 
+  WHERE fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds'
+");
+$stmt->execute([':inicio' => $fecha_inicio, ':fin' => $fecha_fin]);
+$total_peso = (int)$stmt->fetchColumn();
+
 $total_envios = $total_dimensiones + $total_peso;
 
 // Ingresos totales
-$ingresos_dimensiones = $conn->query("SELECT SUM(precio) as total FROM enviosxdimensiones WHERE fecha_registro BETWEEN '$fecha_inicio' AND '$fecha_fin 23:59:59'")->fetch_assoc()['total'] ?? 0;
-$ingresos_peso = $conn->query("SELECT SUM(precio) as total FROM enviosxpeso WHERE fecha_registro BETWEEN '$fecha_inicio' AND '$fecha_fin 23:59:59'")->fetch_assoc()['total'] ?? 0;
+$stmt = $conn->prepare("
+  SELECT COALESCE(SUM(precio), 0) as total 
+  FROM enviosxdimensiones 
+  WHERE fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds'
+");
+$stmt->execute([':inicio' => $fecha_inicio, ':fin' => $fecha_fin]);
+$ingresos_dimensiones = (float)$stmt->fetchColumn();
+
+$stmt = $conn->prepare("
+  SELECT COALESCE(SUM(precio), 0) as total 
+  FROM enviosxpeso 
+  WHERE fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds'
+");
+$stmt->execute([':inicio' => $fecha_inicio, ':fin' => $fecha_fin]);
+$ingresos_peso = (float)$stmt->fetchColumn();
+
 $ingresos_totales = $ingresos_dimensiones + $ingresos_peso;
 
-// Envíos por mes (para gráfica)
+// --- 🔹 Envíos por mes (últimos 6 meses) ---
 $envios_mensuales = [];
 for ($i = 5; $i >= 0; $i--) {
   $mes = date('Y-m', strtotime("-$i months"));
   $mes_nombre = date('M Y', strtotime("-$i months"));
 
-  $dim_mes = $conn->query("SELECT COUNT(*) as total FROM enviosxdimensiones WHERE DATE_FORMAT(fecha_registro, '%Y-%m') = '$mes'")->fetch_assoc()['total'];
-  $peso_mes = $conn->query("SELECT COUNT(*) as total FROM enviosxpeso WHERE DATE_FORMAT(fecha_registro, '%Y-%m') = '$mes'")->fetch_assoc()['total'];
+  // PostgreSQL: usar TO_CHAR(fecha, 'YYYY-MM')
+  $stmt = $conn->prepare("
+    SELECT COUNT(*) FROM enviosxdimensiones 
+    WHERE TO_CHAR(fecha_registro, 'YYYY-MM') = :mes
+  ");
+  $stmt->execute([':mes' => $mes]);
+  $dim_mes = (int)$stmt->fetchColumn();
+
+  $stmt = $conn->prepare("
+    SELECT COUNT(*) FROM enviosxpeso 
+    WHERE TO_CHAR(fecha_registro, 'YYYY-MM') = :mes
+  ");
+  $stmt->execute([':mes' => $mes]);
+  $peso_mes = (int)$stmt->fetchColumn();
 
   $envios_mensuales[$mes_nombre] = [
     'dimensiones' => $dim_mes,
@@ -57,61 +101,78 @@ for ($i = 5; $i >= 0; $i--) {
   ];
 }
 
-// Top 5 clientes
-$top_clientes = $conn->query("
-    (SELECT nombre_cliente, COUNT(*) as envios, SUM(precio) as total_gastado 
-     FROM enviosxdimensiones 
-     WHERE fecha_registro BETWEEN '$fecha_inicio' AND '$fecha_fin 23:59:59'
-     GROUP BY nombre_cliente)
+// --- 🔹 Top 5 clientes ---
+$sql_top = "
+  SELECT nombre_cliente, SUM(envios) AS envios, SUM(total_gastado) AS total_gastado FROM (
+    SELECT nombre_cliente, COUNT(*) AS envios, SUM(precio) AS total_gastado
+    FROM enviosxdimensiones
+    WHERE fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds'
+    GROUP BY nombre_cliente
     UNION ALL
-    (SELECT nombre_cliente, COUNT(*) as envios, SUM(precio) as total_gastado 
-     FROM enviosxpeso 
-     WHERE fecha_registro BETWEEN '$fecha_inicio' AND '$fecha_fin 23:59:59'
-     GROUP BY nombre_cliente)
-    ORDER BY total_gastado DESC 
+    SELECT nombre_cliente, COUNT(*) AS envios, SUM(precio) AS total_gastado
+    FROM enviosxpeso
+    WHERE fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds'
+    GROUP BY nombre_cliente
+  ) AS union_clientes
+  GROUP BY nombre_cliente
+  ORDER BY total_gastado DESC
+  LIMIT 5
+";
+$stmt = $conn->prepare($sql_top);
+$stmt->execute([':inicio' => $fecha_inicio, ':fin' => $fecha_fin]);
+$top_clientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// --- 🔹 Envíos por usuario ---
+$sql_usuarios = "
+  SELECT u.username,
+    (SELECT COUNT(*) FROM enviosxdimensiones WHERE usuario_id = u.id AND fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds') AS dim_count,
+    (SELECT COUNT(*) FROM enviosxpeso WHERE usuario_id = u.id AND fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds') AS peso_count
+  FROM usuarios u
+  HAVING (dim_count + peso_count) > 0
+  ORDER BY (dim_count + peso_count) DESC
+";
+$stmt = $conn->prepare($sql_usuarios);
+$stmt->execute([':inicio' => $fecha_inicio, ':fin' => $fecha_fin]);
+$envios_por_usuario = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// --- 🔹 Últimos envíos ---
+$sql_ultimos = "
+  SELECT * FROM (
+    SELECT id, nombre_cliente, direccion_destino, fecha_registro, 'Dimensiones' AS tipo, precio
+    FROM enviosxdimensiones
+    WHERE fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds'
+    ORDER BY fecha_registro DESC
     LIMIT 5
-");
-
-// Envíos por usuario
-$envios_por_usuario = $conn->query("
-    SELECT u.username, 
-           (SELECT COUNT(*) FROM enviosxdimensiones WHERE usuario_id = u.id AND fecha_registro BETWEEN '$fecha_inicio' AND '$fecha_fin 23:59:59') as dim_count,
-           (SELECT COUNT(*) FROM enviosxpeso WHERE usuario_id = u.id AND fecha_registro BETWEEN '$fecha_inicio' AND '$fecha_fin 23:59:59') as peso_count
-    FROM usuarios u
-    HAVING (dim_count + peso_count) > 0
-    ORDER BY (dim_count + peso_count) DESC
-");
-
-// Últimos envíos
-$ultimos_envios = $conn->query("
-    (SELECT id, nombre_cliente, direccion_destino, fecha_registro, 'Dimensiones' as tipo, precio
-     FROM enviosxdimensiones 
-     WHERE fecha_registro BETWEEN '$fecha_inicio' AND '$fecha_fin 23:59:59'
-     ORDER BY fecha_registro DESC 
-     LIMIT 5)
-    UNION ALL
-    (SELECT id, nombre_cliente, direccion_destino, fecha_registro, 'Peso' as tipo, precio
-     FROM enviosxpeso 
-     WHERE fecha_registro BETWEEN '$fecha_inicio' AND '$fecha_fin 23:59:59'
-     ORDER BY fecha_registro DESC 
-     LIMIT 5)
-    ORDER BY fecha_registro DESC 
-    LIMIT 10
-");
+  ) AS dim
+  UNION ALL
+  SELECT * FROM (
+    SELECT id, nombre_cliente, direccion_destino, fecha_registro, 'Peso' AS tipo, precio
+    FROM enviosxpeso
+    WHERE fecha_registro BETWEEN :inicio AND :fin::timestamp + interval '23 hours 59 minutes 59 seconds'
+    ORDER BY fecha_registro DESC
+    LIMIT 5
+  ) AS peso
+  ORDER BY fecha_registro DESC
+  LIMIT 10
+";
+$stmt = $conn->prepare($sql_ultimos);
+$stmt->execute([':inicio' => $fecha_inicio, ':fin' => $fecha_fin]);
+$ultimos_envios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
+
 <script>
-    // Pasar datos PHP a JavaScript para las gráficas
-    var chartDataDistribucion = {
-        totalDimensiones: <?php echo $total_dimensiones; ?>,
-        totalPeso: <?php echo $total_peso; ?>
-    };
-    
-    var chartDataTendencia = {
-        labels: <?php echo json_encode(array_keys($envios_mensuales)); ?>,
-        datosDimensiones: <?php echo json_encode(array_column($envios_mensuales, 'dimensiones')); ?>,
-        datosPeso: <?php echo json_encode(array_column($envios_mensuales, 'peso')); ?>
-    };
+  // Pasar datos PHP a JavaScript para las gráficas
+  var chartDataDistribucion = {
+    totalDimensiones: <?php echo $total_dimensiones; ?>,
+    totalPeso: <?php echo $total_peso; ?>
+  };
+
+  var chartDataTendencia = {
+    labels: <?php echo json_encode(array_keys($envios_mensuales)); ?>,
+    datosDimensiones: <?php echo json_encode(array_column($envios_mensuales, 'dimensiones')); ?>,
+    datosPeso: <?php echo json_encode(array_column($envios_mensuales, 'peso')); ?>
+  };
 </script>
 
 <!DOCTYPE html>
@@ -148,16 +209,16 @@ $ultimos_envios = $conn->query("
       <!-- Sidebar -->
       <div class="col-md-3">
         <div class="list-group">
-          <a href="/Sotramagdalena/pages/dashboardAdmin.php" class="list-group-item list-group-item-action">
+          <a href="../dashboardAdmin.php" class="list-group-item list-group-item-action">
             <i class="fas fa-tachometer-alt me-2"></i>Dashboard
           </a>
-          <a href="/Sotramagdalena/pages/usuarios/usuarios.php" class="list-group-item list-group-item-action">
+          <a href="../usuarios/usuarios.php" class="list-group-item list-group-item-action">
             <i class="fas fa-users me-2"></i>Usuarios
           </a>
-          <a href="/Sotramagdalena/pages/paquetes/precios.php" class="list-group-item list-group-item-action">
+          <a href="../paquetes/precios.php" class="list-group-item list-group-item-action">
             <i class="fas fa-box me-2"></i>Paquetes
           </a>
-          <a href="/Sotramagdalena/pages/proveedores/proveedores.php" class="list-group-item list-group-item-action">
+          <a href="../proveedores/proveedores.php" class="list-group-item list-group-item-action">
             <i class="fas fa-truck me-2"></i>Proveedores
           </a>
           <a href="#" class="list-group-item list-group-item-action active">
@@ -331,14 +392,14 @@ $ultimos_envios = $conn->query("
                       </tr>
                     </thead>
                     <tbody>
-                      <?php if ($top_clientes && $top_clientes->num_rows > 0): ?>
-                        <?php while ($cliente = $top_clientes->fetch_assoc()): ?>
+                      <?php if (!empty($top_clientes)): ?>
+                        <?php foreach ($top_clientes as $cliente): ?>
                           <tr>
                             <td><?php echo htmlspecialchars($cliente['nombre_cliente']); ?></td>
                             <td><?php echo $cliente['envios']; ?></td>
                             <td>$<?php echo number_format($cliente['total_gastado'], 2); ?></td>
                           </tr>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                       <?php else: ?>
                         <tr>
                           <td colspan="3" class="text-center">No hay datos de clientes</td>
@@ -367,15 +428,15 @@ $ultimos_envios = $conn->query("
                       </tr>
                     </thead>
                     <tbody>
-                      <?php if ($envios_por_usuario && $envios_por_usuario->num_rows > 0): ?>
-                        <?php while ($usuario = $envios_por_usuario->fetch_assoc()): ?>
+                      <?php if (!empty($envios_por_usuario)): ?>
+                        <?php foreach ($envios_por_usuario as $usuario): ?>
                           <tr>
                             <td><?php echo htmlspecialchars($usuario['username']); ?></td>
                             <td><?php echo $usuario['dim_count']; ?></td>
                             <td><?php echo $usuario['peso_count']; ?></td>
                             <td><strong><?php echo $usuario['dim_count'] + $usuario['peso_count']; ?></strong></td>
                           </tr>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                       <?php else: ?>
                         <tr>
                           <td colspan="4" class="text-center">No hay envíos por usuarios</td>
@@ -406,8 +467,8 @@ $ultimos_envios = $conn->query("
                       </tr>
                     </thead>
                     <tbody>
-                      <?php if ($ultimos_envios && $ultimos_envios->num_rows > 0): ?>
-                        <?php while ($envio = $ultimos_envios->fetch_assoc()): ?>
+                      <?php if (!empty($ultimos_envios)): ?>
+                        <?php foreach ($ultimos_envios as $envio): ?>
                           <tr>
                             <td>#<?php echo $envio['id']; ?></td>
                             <td><?php echo htmlspecialchars($envio['nombre_cliente']); ?></td>
@@ -420,7 +481,7 @@ $ultimos_envios = $conn->query("
                             <td>$<?php echo number_format($envio['precio'], 2); ?></td>
                             <td><?php echo date('d/m/Y H:i', strtotime($envio['fecha_registro'])); ?></td>
                           </tr>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                       <?php else: ?>
                         <tr>
                           <td colspan="6" class="text-center">No hay envíos recientes</td>
@@ -436,8 +497,8 @@ $ultimos_envios = $conn->query("
       </div>
     </div>
   </div>
-<script src="../../js/pages/reportes/scriptReportes.js"></script>
-  
+  <script src="../../js/pages/reportes/scriptReportes.js"></script>
+
 
 </body>
 

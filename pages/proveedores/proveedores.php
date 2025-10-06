@@ -17,7 +17,7 @@ if ($_SESSION['rol'] !== 'usuario' && $_SESSION['rol'] !== 'administrador') {
 $host = "dpg-d3he09ali9vc73e2a6o0-a";
 $dbname = "enviosdb";
 $user = "enviosdb_user";
-$pass = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; // 👈 cambia esto
+$pass = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH";
 
 try {
     $conn = new PDO("pgsql:host=$host;dbname=$dbname", $user, $pass);
@@ -175,11 +175,11 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             <!-- Sidebar -->
             <div class="col-md-3">
                 <div class="list-group animate-fadeIn">
-                    <a href="/Sotramagdalena/pages/dashboardAdmin.php" class="list-group-item list-group-item-action"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
-                    <a href="/Sotramagdalena/pages/usuarios/usuarios.php" class="list-group-item list-group-item-action"><i class="fas fa-users me-2"></i>Usuarios</a>
-                    <a href="/Sotramagdalena/pages/paquetes/precios.php" class="list-group-item list-group-item-action"><i class="fas fa-box me-2"></i>Paquetes</a>
-                    <a href="/Sotramagdalena/pages/proveedores/proveedores.php" class="list-group-item list-group-item-action active"><i class="fas fa-truck me-2"></i>Proveedores</a>
-                    <a href="/Sotramagdalena/pages/reportes/reportes.php" class="list-group-item list-group-item-action"><i class="fas fa-chart-bar me-2"></i>Reportes</a>
+                    <a href="../dashboardAdmin.php" class="list-group-item list-group-item-action"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
+                    <a href="../usuarios/usuarios.php" class="list-group-item list-group-item-action"><i class="fas fa-users me-2"></i>Usuarios</a>
+                    <a href="../paquetes/precios.php" class="list-group-item list-group-item-action"><i class="fas fa-box me-2"></i>Paquetes</a>
+                    <a href="../proveedores/proveedores.php" class="list-group-item list-group-item-action active"><i class="fas fa-truck me-2"></i>Proveedores</a>
+                    <a href="../reportes/reportes.php" class="list-group-item list-group-item-action"><i class="fas fa-chart-bar me-2"></i>Reportes</a>
                 </div>
 
                 <!-- Tarjeta de acciones rápidas -->
