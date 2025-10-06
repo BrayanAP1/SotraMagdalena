@@ -8,7 +8,7 @@ if (!isset($_SESSION['rol']) || $_SESSION['rol'] != 'administrador') {
 }
 
 // Conexión PostgreSQL
-$host = "d3he09ali9vc73e2a6o0";
+$host = "dpg-d3he09ali9vc73e2a6o0-a";
 $dbname = "enviosdb";
 $user = "enviosdb_user"; // cámbialo si tu usuario es distinto
 $password = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; // pon tu contraseña real
