@@ -1,44 +1,67 @@
-<?php include("conexion.php"); ?>
 <?php
-// Verificar si el usuario tiene permisos de administrador
+include("conexion.php");
 session_start();
-if (!isset($_SESSION['rol']) || $_SESSION['rol'] != 'administrador') {
+
+// ✅ Verificar si el usuario tiene permisos de administrador
+if (!isset($_SESSION['rol']) || $_SESSION['rol'] !== 'administrador') {
     header("Location: ../login.php");
     exit();
 }
 
-$id = $_GET['id'];
-$sql = "SELECT * FROM usuarios WHERE id=$id";
-$result = $conn->query($sql);
+// ✅ Validar ID recibido
+if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+    header("Location: usuarios.php?error=ID inválido");
+    exit();
+}
 
-// Verificar si el usuario existe
-if ($result->num_rows == 0) {
+$id = intval($_GET['id']);
+
+// ✅ Consultar datos del usuario
+$sql = "SELECT * FROM usuarios WHERE id = :id";
+$stmt = $conn->prepare($sql);
+$stmt->execute([':id' => $id]);
+$usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// ✅ Verificar si el usuario existe
+if (!$usuario) {
     header("Location: usuarios.php?error=Usuario no encontrado");
     exit();
 }
 
-$usuario = $result->fetch_assoc();
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $nombre = $_POST['nombre'];
-    $username = $_POST['username'];
+// ✅ Procesar formulario
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $nombre = trim($_POST['nombre']);
+    $username = trim($_POST['username']);
     $rol = $_POST['rol'];
-    $estado = isset($_POST['estado']) ? 1 : 0;
+    $estado = isset($_POST['estado']) ? true : false; // booleano para PostgreSQL
 
     // Validación básica
     if (empty($nombre) || empty($username)) {
-        $error = "Todos los campos obligatorios deben ser completados";
+        $error = "Todos los campos obligatorios deben ser completados.";
     } else {
-        $sql = "UPDATE usuarios SET nombre='$nombre', username='$username', rol='$rol', estado=$estado WHERE id=$id";
-        if ($conn->query($sql)) {
+        try {
+            $sql = "UPDATE usuarios 
+                    SET nombre = :nombre, username = :username, rol = :rol, estado = :estado 
+                    WHERE id = :id";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute([
+                ':nombre' => $nombre,
+                ':username' => $username,
+                ':rol' => $rol,
+                ':estado' => $estado,
+                ':id' => $id
+            ]);
+
             header("Location: usuarios.php?success=Usuario actualizado correctamente");
             exit();
-        } else {
-            $error = "Error: " . $conn->error;
+
+        } catch (PDOException $e) {
+            $error = "Error al actualizar el usuario: " . $e->getMessage();
         }
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
