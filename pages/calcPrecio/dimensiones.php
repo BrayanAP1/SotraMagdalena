@@ -6,14 +6,19 @@ if (!isset($_SESSION['id'])) {
   exit();
 }
 
-$conn = new mysqli("localhost", "root", "", "enviosdb");
-$rangos = $conn->query("SELECT * FROM rangoxdimen ORDER BY minimo ASC");
-$data = [];
-while ($r = $rangos->fetch_assoc()) {
-  $data[] = $r;
+try {
+  // Conexión a PostgreSQL con PDO
+  $conn = new PDO("pgsql:host=dpg-d3he09ali9vc73e2a6o0-a;dbname=enviosdb;user=enviosdb_user;password=vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH");
+  $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+  // Consulta de los rangos
+  $stmt = $conn->query("SELECT * FROM rangoxdimen ORDER BY minimo ASC");
+  $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  die("Error de conexión: " . $e->getMessage());
 }
-$conn->close();
 ?>
+
 
 <!DOCTYPE html>
 <html lang="es">
