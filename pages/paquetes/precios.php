@@ -58,9 +58,7 @@ $filtros = [];
 $where_conditions = [];
 
 // Filtro por tipo
-if (isset($_GET['tipo']) && $_GET['tipo'] !== 'todos') {
-    $filtros['tipo'] = $_GET['tipo'];
-}
+$tipoFiltro = $_GET['tipo'] ?? 'todos';
 
 // Filtro por cliente
 if (!empty($_GET['cliente'])) {
@@ -113,7 +111,7 @@ $paquetes = [];
 
 // 🔄 Consultar tablas según filtros
 try {
-    if (empty($_GET['tipo']) || $_GET['tipo'] === 'todos') {
+    if ($tipoFiltro === 'todos') {
         $sql1 = "SELECT $selDim, 'Dimensiones' AS tipo, 'dim' AS tabla FROM enviosxdimensiones $where_clause";
         $sql2 = "SELECT $selPeso, 'Peso' AS tipo, 'peso' AS tabla FROM enviosxpeso $where_clause";
 
