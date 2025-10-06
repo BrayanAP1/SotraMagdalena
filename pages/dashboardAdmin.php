@@ -155,16 +155,16 @@ pg_close($conn);
           <a href="dashboardAdmin.php" class="list-group-item list-group-item-action active">
             <i class="fas fa-tachometer-alt me-2"></i>Dashboard
           </a>
-          <a href="/Sotramagdalena/pages/usuarios/usuarios.php" class="list-group-item list-group-item-action">
+          <a href="/pages/usuarios/usuarios.php" class="list-group-item list-group-item-action">
             <i class="fas fa-users me-2"></i>Usuarios
           </a>
-          <a href="/Sotramagdalena/pages/paquetes/precios.php" class="list-group-item list-group-item-action">
+          <a href="/pages/paquetes/precios.php" class="list-group-item list-group-item-action">
             <i class="fas fa-box me-2"></i>Paquetes
           </a>
-          <a href="/Sotramagdalena/pages/proveedores/proveedores.php" class="list-group-item list-group-item-action">
+          <a href="/pages/proveedores/proveedores.php" class="list-group-item list-group-item-action">
             <i class="fas fa-truck me-2"></i>Proveedores
           </a>
-          <a href="/Sotramagdalena/pages/reportes/reportes.php" class="list-group-item list-group-item-action">
+          <a href="/pages/reportes/reportes.php" class="list-group-item list-group-item-action">
             <i class="fas fa-chart-bar me-2"></i>Reportes
           </a>
         </div>
