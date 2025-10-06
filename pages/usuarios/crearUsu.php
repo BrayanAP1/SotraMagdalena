@@ -1,105 +1,115 @@
-<?php 
+<?php
 include("conexion.php"); 
-
 session_start();
 
-// Verificar que haya sesión iniciada
+// ✅ Verificar que haya sesión iniciada
 if (!isset($_SESSION['id']) || !isset($_SESSION['rol'])) {
     header("Location: ../index.php"); 
     exit();
 }
 
-// Verificar rol (solo administrador puede acceder)
+// ✅ Verificar rol (solo administrador puede acceder)
 if ($_SESSION['rol'] !== 'administrador') {
     header("Location: ../index.php");
     exit();
 }
 
-// Procesar cambios de estado
-if (isset($_GET['cambiar_estado'])) {
+// ✅ Procesar cambios de estado
+if (isset($_GET['cambiar_estado']) && isset($_GET['id'])) {
     $id = intval($_GET['id']);
     $nuevo_estado = intval($_GET['cambiar_estado']);
-    
-    $sql = "UPDATE usuarios SET estado = $nuevo_estado WHERE id = $id";
-    if ($conn->query($sql)) {
+
+    $sql = "UPDATE usuarios SET estado = :nuevo_estado WHERE id = :id";
+    $stmt = $conn->prepare($sql);
+    if ($stmt->execute([':nuevo_estado' => $nuevo_estado, ':id' => $id])) {
         $mensaje = $nuevo_estado ? "Usuario activado correctamente" : "Usuario desactivado correctamente";
         $tipo_mensaje = "success";
     } else {
-        $mensaje = "Error al cambiar estado: " . $conn->error;
+        $mensaje = "Error al cambiar estado.";
         $tipo_mensaje = "danger";
     }
 }
 
-// Búsqueda y filtrado
-$filtro = "";
-$where = "";
+// ✅ Búsqueda y filtrado
+$where = [];
+$params = [];
 
-if (isset($_GET['buscar']) && !empty($_GET['buscar'])) {
-    $busqueda = $conn->real_escape_string($_GET['buscar']);
-    $where = "WHERE (nombre LIKE '%$busqueda%' OR username LIKE '%$busqueda%' OR rol LIKE '%$busqueda%')";
-    $filtro = $_GET['buscar'];
+if (!empty($_GET['buscar'])) {
+    $busqueda = '%' . $_GET['buscar'] . '%';
+    $where[] = "(nombre ILIKE :busqueda OR username ILIKE :busqueda OR rol ILIKE :busqueda)";
+    $params[':busqueda'] = $busqueda;
 }
 
-if (isset($_GET['rol']) && $_GET['rol'] != 'todos') {
-    $rol = $conn->real_escape_string($_GET['rol']);
-    $where .= $where ? " AND rol = '$rol'" : "WHERE rol = '$rol'";
+if (isset($_GET['rol']) && $_GET['rol'] !== 'todos') {
+    $where[] = "rol = :rol";
+    $params[':rol'] = $_GET['rol'];
 }
 
-if (isset($_GET['estado']) && $_GET['estado'] != 'todos') {
-    $estado = intval($_GET['estado']);
-    $where .= $where ? " AND estado = $estado" : "WHERE estado = $estado";
+if (isset($_GET['estado']) && $_GET['estado'] !== 'todos') {
+    $where[] = "estado = :estado";
+    $params[':estado'] = intval($_GET['estado']);
 }
 
+$where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+// ✅ Si se envía el formulario (crear usuario)
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $nombre = trim($_POST['nombre']);
     $username = trim($_POST['username']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
     $rol = $_POST['rol'];
-    
-    // Validaciones
+
     $errores = [];
-    
+
     if (empty($nombre)) {
         $errores['nombre'] = "El nombre es obligatorio";
     }
-    
+
     if (empty($username)) {
         $errores['username'] = "El usuario es obligatorio";
     } else {
-        // Verificar si el usuario ya existe
-        $check_user = "SELECT id FROM usuarios WHERE username = '$username'";
-        $result = $conn->query($check_user);
-        if ($result->num_rows > 0) {
+        // ✅ Verificar si el usuario ya existe
+        $check_user = $conn->prepare("SELECT id FROM usuarios WHERE username = :username");
+        $check_user->execute([':username' => $username]);
+        if ($check_user->fetch()) {
             $errores['username'] = "Este nombre de usuario ya está en uso";
         }
     }
-    
+
     if (empty($password)) {
         $errores['password'] = "La contraseña es obligatoria";
     } elseif (strlen($password) < 6) {
         $errores['password'] = "La contraseña debe tener al menos 6 caracteres";
     }
-    
+
     if ($password !== $confirm_password) {
         $errores['confirm_password'] = "Las contraseñas no coinciden";
     }
-    
-    // Si no hay errores, proceder con el registro
+
+    // ✅ Si no hay errores, registrar el usuario
     if (empty($errores)) {
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
-        $sql = "INSERT INTO usuarios (nombre, username, password, rol) VALUES ('$nombre', '$username', '$password_hash', '$rol')";
-        
-        if ($conn->query($sql)) {
+        $sql = "INSERT INTO usuarios (nombre, username, password, rol) VALUES (:nombre, :username, :password, :rol)";
+        $stmt = $conn->prepare($sql);
+        $exito = $stmt->execute([
+            ':nombre' => $nombre,
+            ':username' => $username,
+            ':password' => $password_hash,
+            ':rol' => $rol
+        ]);
+
+        if ($exito) {
             $_SESSION['mensaje_exito'] = "Usuario creado exitosamente";
             header("Location: usuarios.php");
             exit();
         } else {
-            $error_general = "Error al crear el usuario: " . $conn->error;
+            $error_general = "Error al crear el usuario.";
         }
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
