@@ -8,7 +8,7 @@ if (!isset($_SESSION['id'])) {
 
 date_default_timezone_set('America/Bogota');
 
-// 🔹 Conexión a PostgreSQL
+// Conexión a PostgreSQL
 $host = "dpg-d3he09ali9vc73e2a6o0-a";
 $port = "5432";
 $dbname = "enviosdb";
