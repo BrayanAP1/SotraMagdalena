@@ -1,22 +1,25 @@
 <?php
-
 session_start();
 
 if (!isset($_SESSION['id'])) {
-    header("Location: ../index.php"); // Redirige al login si no hay sesión
+    header("Location: ../index.php");
     exit();
 }
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "enviosdb";
-$conn = new mysqli($servername, $username, $password, $dbname);
 
-if ($conn->connect_error) {
-    die("Conexión fallida: " . $conn->connect_error);
+// Conexión a PostgreSQL
+$host = "dpg-d3he09ali9vc73e2a6o0-a";
+$port = "5432";
+$dbname = "enviosdb";
+$user = "enviosdb_user";
+$password = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; // 🔹 cámbiala por la tuya
+
+$conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
+
+if (!$conn) {
+    die("Error al conectar con la base de datos.");
 }
 
-// Procesar formularios
+// Variables para mensajes
 $mensaje_exito = "";
 $mensaje_error = "";
 
@@ -27,16 +30,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['nuevo_rango'])) {
     $max = $_POST['peso_max'];
     $precio = $_POST['precio_kg'];
 
-    // Validar que el mínimo sea menor que el máximo
     if ($min >= $max) {
         $mensaje_error = "El peso mínimo debe ser menor que el peso máximo";
     } else {
         $sql = "INSERT INTO rangoxpeso (rango_nombre, peso_min, peso_max, precio_kg)
                 VALUES ('$nombre', '$min', '$max', '$precio')";
-        if ($conn->query($sql)) {
+        $result = pg_query($conn, $sql);
+
+        if ($result) {
             $mensaje_exito = "¡Nuevo rango de peso agregado correctamente!";
         } else {
-            $mensaje_error = "Error al agregar el rango: " . $conn->error;
+            $mensaje_error = "Error al agregar el rango: " . pg_last_error($conn);
         }
     }
 }
@@ -52,12 +56,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['actualizar_rango'])) {
     if ($min >= $max) {
         $mensaje_error = "El peso mínimo debe ser menor que el peso máximo";
     } else {
-        $sql = "UPDATE rangoxpeso SET rango_nombre='$nombre', peso_min='$min', 
-                peso_max='$max', precio_kg='$precio' WHERE id=$id";
-        if ($conn->query($sql)) {
+        $sql = "UPDATE rangoxpeso
+                SET rango_nombre = '$nombre', peso_min = '$min', peso_max = '$max', precio_kg = '$precio'
+                WHERE id = $id";
+        $result = pg_query($conn, $sql);
+
+        if ($result) {
             $mensaje_exito = "¡Rango de peso actualizado correctamente!";
         } else {
-            $mensaje_error = "Error al actualizar el rango: " . $conn->error;
+            $mensaje_error = "Error al actualizar el rango: " . pg_last_error($conn);
         }
     }
 }
@@ -65,17 +72,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['actualizar_rango'])) {
 // Eliminar rango
 if (isset($_GET['eliminar'])) {
     $id = intval($_GET['eliminar']);
-    $sql = "DELETE FROM rangoxpeso WHERE id=$id";
-    if ($conn->query($sql)) {
+    $sql = "DELETE FROM rangoxpeso WHERE id = $id";
+    $result = pg_query($conn, $sql);
+
+    if ($result) {
         $mensaje_exito = "¡Rango de peso eliminado correctamente!";
     } else {
-        $mensaje_error = "Error al eliminar el rango: " . $conn->error;
+        $mensaje_error = "Error al eliminar el rango: " . pg_last_error($conn);
     }
 }
 
 // Obtener rangos existentes
-$result = $conn->query("SELECT * FROM rangoxpeso ORDER BY peso_min ASC");
+$result = pg_query($conn, "SELECT * FROM rangoxpeso ORDER BY peso_min ASC");
 ?>
+
 
 <!DOCTYPE html>
 <html lang="es">
@@ -219,7 +229,7 @@ $result = $conn->query("SELECT * FROM rangoxpeso ORDER BY peso_min ASC");
                         </h4>
                     </div>
                     <div class="card-body">
-                        <?php if ($result->num_rows > 0): ?>
+                        <?php if (pg_num_rows($result) > 0): ?>
                             <div class="table-responsive">
                                 <table class="table table-hover">
                                     <thead>
@@ -232,7 +242,7 @@ $result = $conn->query("SELECT * FROM rangoxpeso ORDER BY peso_min ASC");
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php while ($row = $result->fetch_assoc()): ?>
+                                        <?php while ($row = pg_fetch_assoc($result)): ?>
                                             <form method="POST">
                                                 <input type="hidden" name="actualizar_rango" value="1">
                                                 <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
@@ -314,4 +324,4 @@ $result = $conn->query("SELECT * FROM rangoxpeso ORDER BY peso_min ASC");
 </body>
 
 </html>
-<?php $conn->close(); ?>
+<?php pg_close($conn); ?>

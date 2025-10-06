@@ -1,19 +1,22 @@
 <?php
-
 session_start();
 
 if (!isset($_SESSION['id'])) {
     header("Location: ../index.php");
     exit();
 }
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "enviosdb";
-$conn = new mysqli($servername, $username, $password, $dbname);
 
-if ($conn->connect_error) {
-    die("Conexión fallida: " . $conn->connect_error);
+// Conexión a PostgreSQL
+$host = "dpg-d3he09ali9vc73e2a6o0-a";
+$port = "5432";
+$dbname = "enviosdb";
+$user = "enviosdb_user";
+$password = "vgVeoNl0vf7WaTNH05FLHlHMAi2xi3uH"; // 🔹 Cambia esto por la tuya real
+
+$conn = pg_connect("host=$host port=$port dbname=$dbname user=$user password=$password");
+
+if (!$conn) {
+    die("Error al conectar con la base de datos.");
 }
 
 // Procesar actualización de precios
@@ -24,17 +27,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $maximo = $_POST['maximo'];
     $precio = $_POST['precio'];
 
-    $sql = "UPDATE rangoxdimen SET nombre='$nombre', minimo='$minimo', maximo='$maximo', precio_por_unidad='$precio' WHERE id=$id";
-    if ($conn->query($sql)) {
+    $sql = "UPDATE rangoxdimen 
+            SET nombre = '$nombre', minimo = '$minimo', maximo = '$maximo', precio_por_unidad = '$precio' 
+            WHERE id = $id";
+
+    $result = pg_query($conn, $sql);
+
+    if ($result) {
         $mensaje_exito = "¡Los cambios se guardaron correctamente!";
     } else {
-        $mensaje_error = "Error al guardar los cambios: " . $conn->error;
+        $mensaje_error = "Error al guardar los cambios: " . pg_last_error($conn);
     }
 }
 
 // Obtener datos de la base de datos
-$result = $conn->query("SELECT * FROM rangoxdimen ORDER BY minimo ASC");
+$result = pg_query($conn, "SELECT * FROM rangoxdimen ORDER BY minimo ASC");
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 
@@ -152,8 +161,8 @@ $result = $conn->query("SELECT * FROM rangoxdimen ORDER BY minimo ASC");
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php if ($result->num_rows > 0): ?>
-                                        <?php while ($row = $result->fetch_assoc()): ?>
+                                    <?php if (pg_num_rows($result) > 0): ?>
+                                        <?php while ($row = pg_fetch_assoc($result)): ?>
                                             <form method="POST">
                                                 <tr>
                                                     <td>
@@ -229,4 +238,4 @@ $result = $conn->query("SELECT * FROM rangoxdimen ORDER BY minimo ASC");
 </body>
 
 </html>
-<?php $conn->close(); ?>
+<?php pg_close($conn); ?>
